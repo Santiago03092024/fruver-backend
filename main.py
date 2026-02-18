@@ -23,7 +23,7 @@ from jose import JWTError, jwt
 # 1. CONFIGURACIÓN E INICIO DEL SERVIDOR
 # ==========================================
 
-# Esto crea las tablas en Supabase automáticamente si no existen
+# Crea las tablas en Supabase automáticamente
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="FruverOS Pro")
@@ -45,7 +45,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Diccionario temporal para guardar códigos de recuperación admin
+# Diccionario temporal para códigos admin
 TOKENS_ADMIN = {}
 
 # --- DEPENDENCIAS ---
@@ -57,19 +57,18 @@ def get_db():
         db.close()
 
 # ==========================================
-# 2. RUTAS DE NAVEGACIÓN (QUITAR EL NOT FOUND)
+# 2. RUTAS DE NAVEGACIÓN
 # ==========================================
 
 @app.get("/")
 async def root():
-    # Cuando entres a tu link de Render, te manda directo al Login
     return RedirectResponse(url="/static/login.html")
 
-# Servir archivos de la carpeta static (HTML, JS, CSS)
+# Servir archivos estáticos
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ==========================================
-# 3. MODELOS DE DATOS PARA PETICIONES
+# 3. MODELOS DE DATOS
 # ==========================================
 
 class UserCreate(BaseModel):
@@ -84,7 +83,7 @@ class Token(BaseModel):
     rol: str
 
 # ==========================================
-# 4. FUNCIONES DE UTILIDAD (SEGURIDAD)
+# 4. FUNCIONES DE SEGURIDAD
 # ==========================================
 
 def verify_password(plain_password, hashed_password):
@@ -128,6 +127,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     if existe: 
         raise HTTPException(status_code=400, detail="El usuario ya existe")
     
+    # Normalizamos a MAYÚSCULAS para evitar errores de comparación
     rol = "ADMIN" if user.username.lower() == "admin" else "VENDEDOR"
     hashed_pass = get_password_hash(user.password)
     
@@ -148,16 +148,16 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
         "token_type": "bearer",
         "user_id": user.id,
         "username": user.username,
-        "rol": user.rol
+        "rol": user.rol.upper()  # Siempre devolvemos en mayúsculas
     }
 
 # ==========================================
-# 6. SEGURIDAD ADMIN (TOKENS)
+# 6. SEGURIDAD ADMIN (CORREGIDO)
 # ==========================================
 
 @app.get("/admin/generar-codigo")
 def generar_codigo_admin(current_user: models.User = Depends(get_current_user)):
-    if current_user.rol != 'ADMIN':
+    if current_user.rol.upper() != 'ADMIN':
         raise HTTPException(status_code=403, detail="No tienes permisos de administrador")
     
     codigo = ''.join(random.choices(string.digits, k=4))
@@ -173,16 +173,16 @@ def cambiar_pass_dinamico(user_id: int, nueva_pass: str, token_admin: str, db: S
     if user: 
         user.password = get_password_hash(nueva_pass.strip())
         db.commit()
-        # Borrar el código para que no se use dos veces
         if token_admin in TOKENS_ADMIN: del TOKENS_ADMIN[token_admin]
     return {"status": "success"}
 
 @app.get("/admin/usuarios")
 def listar_usuarios_admin(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.rol != 'ADMIN':
+    if current_user.rol.upper() != 'ADMIN':
         return []
     usuarios = db.query(models.User).all()
-    return [[u.id, u.username, u.rol] for u in usuarios]
+    # Cambiado a formato objeto para mejor lectura del JS
+    return [{"id": u.id, "username": u.username, "rol": u.rol} for u in usuarios]
 
 # ==========================================
 # 7. OPERACIONES (COMPRA, VENTA, PAGO)
@@ -279,7 +279,6 @@ def saldos_generales(current_user: models.User = Depends(get_current_user), db: 
         
         saldo = (v if v > 0 else c) - pa
 
-        # Cálculo de días de mora
         mov_v = db.query(models.Movimiento).filter(models.Movimiento.proveedor_id == p.id, models.Movimiento.pagado == False, models.Movimiento.tipo != 'PAGO').order_by(models.Movimiento.fecha.asc()).first()
         mora = (hoy - mov_v.fecha).days if mov_v and mov_v.fecha else 0
         
@@ -337,7 +336,6 @@ def resumen_dias(current_user: models.User = Depends(get_current_user), db: Sess
 
 @app.delete("/borrar_dia_completo")
 def borrar_dia_completo(fecha: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # Borra solo los movimientos del usuario actual en esa fecha
     mis_provs = db.query(models.Proveedor.id).filter(models.Proveedor.owner_id == current_user.id).subquery()
     movs = db.query(models.Movimiento).filter(models.Movimiento.proveedor_id.in_(mis_provs), func.date(models.Movimiento.fecha) == fecha).all()
     for m in movs: db.delete(m)
@@ -350,11 +348,9 @@ def pagar_rango_fechas(nombre: str, f_inicio: str, f_fin: str, monto_real: float
     if not prov:
         raise HTTPException(status_code=404, detail="Persona no encontrada")
 
-    # Registrar el pago global
     nuevo_pago = models.Movimiento(tipo='PAGO', producto=f"SALDO {f_inicio} AL {f_fin}", monto=monto_real, fecha=datetime.now(), proveedor_id=prov.id, pagado=True)
     db.add(nuevo_pago)
     
-    # Marcar como pagados los movimientos del rango
     deudas = db.query(models.Movimiento).filter(
         models.Movimiento.proveedor_id == prov.id, 
         models.Movimiento.pagado == False, 
