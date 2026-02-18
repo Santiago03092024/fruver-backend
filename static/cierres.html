@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -48,7 +48,7 @@
                 <button onclick="cargarDias()" class="bg-white border-2 border-gray-200 text-gray-600 px-4 py-2 rounded-xl font-bold text-xs hover:bg-gray-50 transition-all flex items-center gap-2 shadow-sm uppercase">
                     🔄 Actualizar
                 </button>
-                <a href="index.html" class="bg-gray-800 text-white px-6 py-2 rounded-xl font-bold shadow-lg hover:bg-gray-700 transition-all flex items-center gap-2 uppercase text-xs">
+                <a href="/" class="bg-gray-800 text-white px-6 py-2 rounded-xl font-bold shadow-lg hover:bg-gray-700 transition-all flex items-center gap-2 uppercase text-xs">
                     ⬅ Volver
                 </a>
             </div>
@@ -62,13 +62,15 @@
         </div>
     </div>
 
-    <script src="config.js"></script>
+    <script src="/static/config.js"></script>
 
     <script>
         const token = localStorage.getItem('fruverToken');
         const username = localStorage.getItem('fruverUser');
 
-        if (!token) window.location.href = "login.html";
+        // CORRECCIÓN: Redirección con ruta completa
+        if (!token) window.location.href = "/static/login.html";
+        
         document.getElementById('txtUser').innerText = `USUARIO: ${username ? username.toUpperCase() : 'INVITADO'}`;
 
         window.onload = cargarDias;
@@ -97,7 +99,6 @@
             }
 
             dias.forEach((d, index) => {
-                // AQUÍ ESTÁ LA LÓGICA QUE AHORA SÍ FUNCIONARÁ
                 const pendientePagar = parseFloat(d.pendiente_pagar || 0);
                 const pendienteCobrar = parseFloat(d.pendiente_cobrar || 0);
 
@@ -131,7 +132,6 @@
                             </div>`;
                 }
 
-                // Botón deshabilitado si está bloqueado
                 const btnClass = estaBloqueado
                     ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                     : "bg-gray-900 hover:bg-red-600 text-white shadow-lg cursor-pointer";
@@ -168,7 +168,7 @@
         async function borrarDia(fecha) {
             Swal.fire({
                 title: '¿Cerrar Día?',
-                text: `Vas a eliminar permanentemente las operaciones del ${fecha}. Asegúrate de haber descargado el reporte si lo necesitas.`,
+                text: `Vas a eliminar permanentemente las operaciones del ${fecha}.`,
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
