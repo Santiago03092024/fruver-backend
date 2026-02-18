@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -46,8 +47,11 @@ class Movimiento(Base):
     proveedor_id = Column(Integer, ForeignKey("proveedores.id"))
     proveedor = relationship("Proveedor", back_populates="movimientos")
 
-    # Campos de Conciliación (Se mantienen intactos)
+    # Campos de Conciliacion (Se mantienen intactos)
     pagado = Column(Boolean, default=False)  
 
     fecha_pago = Column(DateTime, nullable=True)
+
+    fecha_pago = Column(DateTime, nullable=True)
+
 
