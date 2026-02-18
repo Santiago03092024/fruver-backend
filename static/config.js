@@ -1,6 +1,7 @@
-// config.js - Comando Central de FruverOS Pro (Versión 4.0)
+// config.js - Comando Central de FruverOS Pro (VersiÃ³n 4.0)
 const CONFIG = {
-    API_URL: "http://localhost:8000",
+    // CORRECCIÃ“N: Tu servidor real en Render
+    API_URL: "https://fruver-api-gbwr.onrender.com",
 
     // 1. Formateador de Moneda
     formatearMoneda: (valor) => {
@@ -11,8 +12,7 @@ const CONFIG = {
         }).format(valor);
     },
 
-    // 2. Motor de Notificaciones (Requiere SweetAlert2 en el HTML)
-    // tipos: 'success', 'error', 'warning', 'info'
+    // 2. Motor de Notificaciones
     notificar: (titulo, texto, icono = 'success') => {
         Swal.fire({
             title: titulo,
@@ -34,7 +34,6 @@ const CONFIG = {
     async solicitar(endpoint, opciones = {}) {
         const token = localStorage.getItem('fruverToken');
 
-        // Headers base con Token
         const headersBase = {
             'Authorization': `Bearer ${token}`
         };
@@ -45,17 +44,18 @@ const CONFIG = {
                 headers: { ...headersBase, ...opciones.headers }
             });
 
-            // Si la sesión expiró (401)
+            // Si la sesiÃ³n expirÃ³ (401)
             if (respuesta.status === 401) {
                 localStorage.clear();
-                window.location.href = "login.html";
+                // CORRECCIÃ“N: Ruta completa para evitar el Not Found
+                window.location.href = "/static/login.html";
                 return;
             }
 
             return respuesta;
         } catch (error) {
-            console.error("Error en la petición:", error);
-            this.notificar("Error de Conexión", "No se pudo contactar con el servidor", "error");
+            console.error("Error en la peticiÃ³n:", error);
+            this.notificar("Error de ConexiÃ³n", "No se pudo contactar con el servidor", "error");
             throw error;
         }
     }
