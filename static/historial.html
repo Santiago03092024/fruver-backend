@@ -66,17 +66,36 @@
 
         <div id="panelResumen" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 no-print animate-fade-in">
             <div class="bg-blue-50 p-6 rounded-2xl border border-blue-100 shadow-sm text-center relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-2 opacity-10 text-4xl">📈</div>
                 <p class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Total Ventas</p>
                 <p id="cardVentas" class="text-3xl font-black text-blue-600 tracking-tight">$ 0</p>
             </div>
+
             <div class="bg-orange-50 p-6 rounded-2xl border border-orange-100 shadow-sm text-center relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-2 opacity-10 text-4xl">🛒</div>
                 <p class="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Total Compras</p>
                 <p id="cardCompras" class="text-3xl font-black text-orange-600 tracking-tight">$ 0</p>
             </div>
+
             <div id="cardUtilidadBox" class="bg-gray-800 p-4 rounded-2xl shadow-lg border border-gray-700 text-center relative overflow-hidden flex flex-col justify-center">
-                <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Saldo Real Pendiente</p>
-                <p id="cardSaldoPendiente" class="text-xl font-black text-yellow-400 tracking-tight">$ 0</p>
+                <div class="absolute top-0 right-0 p-2 opacity-10 text-4xl text-white">💰</div>
+                <div>
+                    <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Utilidad (Ventas - Compras)</p>
+                    <p id="cardUtilidad" class="text-2xl font-black text-white tracking-tight">$ 0</p>
+                </div>
+                <div class="w-full h-px bg-gray-600 my-2"></div>
+                <div>
+                    <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Saldo Real Pendiente</p>
+                    <p id="cardSaldoPendiente" class="text-xl font-black text-yellow-400 tracking-tight">$ 0</p>
+                </div>
             </div>
+        </div>
+
+        <div class="flex bg-gray-200 p-1 rounded-xl mb-6 no-print gap-1">
+            <div onclick="filtrarTipo('TODO')" id="btnTodo" class="flex-1 text-center py-2 text-xs font-bold rounded-lg cursor-pointer transition-all bg-white shadow text-gray-800 segment-btn active">Ver Todo</div>
+            <div onclick="filtrarTipo('VENTA')" id="btnVentas" class="flex-1 text-center py-2 text-xs font-bold rounded-lg cursor-pointer transition-all text-gray-500 segment-btn">Ventas</div>
+            <div onclick="filtrarTipo('COMPRA')" id="btnCompras" class="flex-1 text-center py-2 text-xs font-bold rounded-lg cursor-pointer transition-all text-gray-500 segment-btn">Compras</div>
+            <div onclick="filtrarTipo('PAGO')" id="btnPagos" class="flex-1 text-center py-2 text-xs font-bold rounded-lg cursor-pointer transition-all text-gray-500 segment-btn">Abonos</div>
         </div>
 
         <div id="areaImpresion" class="bg-white rounded-[1rem] shadow-xl overflow-hidden min-h-[500px] relative border border-gray-100">
@@ -172,52 +191,125 @@
                 renderizar();
 
                 document.getElementById('pageInfo').innerText = `Mostrando ${cacheOriginal.length} de ${total}`;
-                document.getElementById("btnSiguiente").disabled = (skip + limit >= total);
-                document.getElementById("btnAnterior").disabled = (skip === 0);
+
+                const btnNext = document.getElementById("btnSiguiente");
+                const btnPrev = document.getElementById("btnAnterior");
+                btnNext.disabled = (skip + limit >= total);
+                btnPrev.disabled = (skip === 0);
 
             } catch (e) { console.error(e); }
+        }
+
+        function calcularResumenEnPantalla(datos) {
+            let sumCompras = 0;
+            let sumVentas = 0;
+            let saldoReal = 0;
+
+            datos.forEach(item => {
+                const valor = parseFloat(item.monto);
+                if (item.tipo === 'COMPRA') sumCompras += valor;
+                if (item.tipo === 'VENTA') sumVentas += valor;
+
+                if (item.tipo === 'PAGO') {
+                    saldoReal -= valor;
+                } else {
+                    if (!item.pagado) saldoReal += valor;
+                }
+            });
+
+            const utilidad = sumVentas - sumCompras;
+
+            document.getElementById('cardVentas').innerText = CONFIG.formatearMoneda(sumVentas);
+            document.getElementById('cardCompras').innerText = CONFIG.formatearMoneda(sumCompras);
+
+            const divUtilidad = document.getElementById('cardUtilidad');
+            divUtilidad.innerText = CONFIG.formatearMoneda(utilidad);
+            divUtilidad.className = utilidad >= 0 ? "text-2xl font-black text-green-400 tracking-tight" : "text-2xl font-black text-red-400 tracking-tight";
+
+            const divSaldo = document.getElementById('cardSaldoPendiente');
+            divSaldo.innerText = CONFIG.formatearMoneda(saldoReal);
+            divSaldo.className = saldoReal <= 0 ? "text-xl font-black text-green-400 tracking-tight" : "text-xl font-black text-yellow-400 tracking-tight";
         }
 
         function renderizar() {
             const tbody = document.getElementById('tablaHistorial');
             let datos = cacheOriginal;
-            
-            let sumC = 0, sumV = 0, saldo = 0;
-            datos.forEach(item => {
-                const valor = parseFloat(item.monto);
-                if (item.tipo === 'COMPRA') sumC += valor;
-                if (item.tipo === 'VENTA') sumV += valor;
-                if (item.tipo === 'PAGO') saldo -= valor; else if (!item.pagado) saldo += valor;
-            });
 
-            document.getElementById('cardVentas').innerText = CONFIG.formatearMoneda(sumV);
-            document.getElementById('cardCompras').innerText = CONFIG.formatearMoneda(sumC);
-            document.getElementById('cardSaldoPendiente').innerText = CONFIG.formatearMoneda(saldo);
+            calcularResumenEnPantalla(datos);
 
             if (datos.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-gray-300 font-black uppercase text-[10px]">Sin resultados</td></tr>`;
+                document.getElementById('footerTabla').innerHTML = '';
                 return;
             }
 
-            tbody.innerHTML = datos.map(item => `
-                <tr class="hover:bg-gray-50 border-b border-gray-100 transition-colors">
-                    <td class="p-4 font-bold text-gray-400">${item.fecha}</td>
-                    <td class="p-4 font-black text-gray-800 uppercase">${item.proveedor}</td>
-                    <td class="p-4">
-                        <div class="flex flex-col">
-                            <span class="font-bold text-gray-700 uppercase">${item.producto || 'Abono'}</span>
-                            <span class="badge ${item.tipo === 'COMPRA' ? 'badge-compra' : item.tipo === 'VENTA' ? 'badge-venta' : 'badge-pago'}">${item.tipo}</span>
-                        </div>
-                    </td>
-                    <td class="p-4 text-right font-black text-gray-800">${CONFIG.formatearMoneda(item.monto)}</td>
-                    <td class="p-4 text-center">
-                         ${item.tipo === 'PAGO' ? '✅' : (item.pagado ? '<span class="text-green-600">PAGADO</span>' : '<span class="text-red-600">DEBE</span>')}
-                    </td>
-                    <td class="p-4 text-center no-print flex justify-center gap-2">
-                        ${item.tipo !== 'PAGO' ? `<button onclick="togglePago(${item.id})" class="border p-1 rounded hover:bg-gray-100">💵</button>` : ''}
-                        <button onclick="eliminarMov(${item.id}, '${item.producto}')" class="text-gray-300 hover:text-red-500">🗑️</button>
-                    </td>
-                </tr>`).join('');
+            tbody.innerHTML = datos.map(item => {
+                const esPago = item.tipo === 'PAGO';
+                let badge = esPago ?
+                    `<span class="badge badge-pago">Abono</span>` :
+                    (item.tipo === 'COMPRA' ? `<span class="badge badge-compra">Compra</span>` : `<span class="badge badge-venta">Venta</span>`);
+
+                // --- LÓGICA DE CAJITA 📦 QUE TE GUSTABA ---
+                let infoDetallada = "";
+                const cant = parseFloat(item.cantidad);
+                const prec = parseFloat(item.precio_unitario);
+
+                if (cant > 0 && prec > 0) {
+                    infoDetallada = `
+                            <div class="mt-1 flex items-center gap-1 text-[10px] text-gray-500 font-bold bg-gray-50 px-2 py-1 rounded w-max border border-gray-100">
+                                <span>📦 ${cant}</span>
+                                <span class="text-gray-300">|</span>
+                                <span>Unit: ${CONFIG.formatearMoneda(prec)}</span>
+                            </div>
+                         `;
+                }
+
+                return `
+                        <tr class="hover:bg-gray-50 border-b border-gray-100 transition-colors">
+                            <td class="p-4 font-bold text-gray-400">${item.fecha}</td>
+                            <td class="p-4 font-black text-gray-800 uppercase">${item.proveedor}</td>
+                            <td class="p-4">
+                                <div class="flex flex-col">
+                                    <span class="font-bold text-gray-700 uppercase">${item.producto || 'Sin descripción'}</span>
+                                    ${infoDetallada}
+                                    <div class="mt-1">${badge}</div>
+                                </div>
+                            </td>
+                            <td class="p-4 text-right font-black text-gray-800">${CONFIG.formatearMoneda(item.monto)}</td>
+                            <td class="p-4 text-center">
+                                ${!esPago ? (item.pagado
+                        ? '<span class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded">PAGADO</span>'
+                        : '<span class="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded">DEBE</span>')
+                        : '<span class="text-[10px] font-bold text-purple-600">OK</span>'}
+                            </td>
+                            <td class="p-4 text-center no-print flex justify-center gap-2">
+                                 ${!esPago ? `
+                                    <button onclick="togglePago(${item.id})" class="shadow-sm border border-gray-200 rounded-lg px-3 py-1 hover:bg-green-50 active:scale-95 transition-all text-xs flex items-center gap-1">
+                                        ${item.pagado ? '↩️' : '💵 Pagar'}
+                                    </button>` : ''}
+                                <button onclick="eliminarMov(${item.id}, '${item.producto}')" class="text-gray-300 hover:text-red-500 text-lg transition-colors px-2">🗑️</button>
+                            </td>
+                        </tr>
+                    `;
+            }).join('');
+
+            // --- CÁLCULO DE SALDO DEL FOOTER ---
+            let saldoPagina = datos.reduce((acc, item) => {
+                const val = parseFloat(item.monto);
+                if (item.tipo === 'PAGO') return acc - val;
+                if (!item.pagado) return acc + val;
+                return acc;
+            }, 0);
+
+            document.getElementById('footerTabla').innerHTML = `
+                    <tr>
+                        <td colspan="3" class="text-right p-4 uppercase text-xs text-gray-400 font-black">Saldo Pendiente Visible:</td>
+                        <td class="text-right p-4 font-black text-gray-900 text-sm border-t border-gray-200">
+                            ${CONFIG.formatearMoneda(Math.abs(saldoPagina))}
+                        </td>
+                        <td colspan="2"></td>
+                    </tr>
+                `;
         }
 
         async function togglePago(id) {
@@ -225,6 +317,16 @@
                 const res = await CONFIG.solicitar(`/marcar_pagado/${id}`, { method: 'POST' });
                 if (res.ok) cargarHistorial();
             } catch (e) { }
+        }
+
+        function filtrarTipo(tipo) {
+            filtroTipoActual = tipo;
+            const botones = { 'TODO': 'btnTodo', 'COMPRA': 'btnCompras', 'VENTA': 'btnVentas', 'PAGO': 'btnPagos' };
+            Object.keys(botones).forEach(key => {
+                document.getElementById(botones[key]).classList.toggle('active', key === tipo);
+                document.getElementById(botones[key]).classList.toggle('bg-white', key === tipo);
+            });
+            resetYPaginacion();
         }
 
         async function eliminarMov(id, nombre) {
@@ -245,8 +347,16 @@
         function paginaSiguiente() { skip += limit; cargarHistorial(); }
         function paginaAnterior() { if (skip >= limit) { skip -= limit; cargarHistorial(); } }
 
+        function limpiarFiltros() {
+            document.getElementById('filtroNombre').value = '';
+            document.getElementById('filtroFecha')._flatpickr.clear();
+            filtroTipoActual = 'TODO';
+            resetYPaginacion();
+        }
+
         function descargarPDF() {
             const n = document.getElementById('filtroNombre').value || "General";
+            Swal.fire({ title: 'Generando PDF...', didOpen: () => Swal.showLoading() });
             document.getElementById('cabeceraPDF').classList.remove('hidden');
             document.getElementById('fechaImpresion').innerText = new Date().toLocaleDateString();
             document.getElementById('clienteImpresion').innerText = n.toUpperCase();
@@ -255,11 +365,17 @@
             const botones = document.querySelectorAll('.no-print');
             botones.forEach(b => b.style.display = 'none');
 
-            html2pdf().set({ margin: 0.2, filename: `Reporte_${n}.pdf`, jsPDF: { orientation: 'landscape' } })
-                .from(element).save().then(() => {
-                    document.getElementById('cabeceraPDF').classList.add('hidden');
-                    botones.forEach(b => b.style.display = '');
-                });
+            html2pdf().set({ 
+                margin: 0.2, 
+                filename: `Reporte_${n}.pdf`, 
+                image: { type: 'jpeg', quality: 0.98 }, 
+                html2canvas: { scale: 2 }, 
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' } 
+            }).from(element).save().then(() => {
+                document.getElementById('cabeceraPDF').classList.add('hidden');
+                botones.forEach(b => b.style.display = '');
+                Swal.close();
+            });
         }
     </script>
 </body>
