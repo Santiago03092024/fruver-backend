@@ -146,12 +146,13 @@
         let datosGlobales = { proveedores: [], clientes: [] };
         let pestañaActual = 'cobrar';
 
-        // Redirección de seguridad
+        // Redirección de seguridad: Si no hay token, fuera.
         if (!token) window.location.href = "/static/login.html";
 
+        // Saludo dinámico
         document.getElementById('saludoUsuario').innerText = `HOLA, ${username.toUpperCase()}`;
         
-        // CORRECCIÓN: Detección de ADMIN (insensible a mayúsculas)
+        // --- FILTRO DE SEGURIDAD ADMIN ---
         if (userRol.toUpperCase() === 'ADMIN') {
             document.getElementById('zonaAdmin').classList.remove('hidden');
         }
@@ -176,7 +177,7 @@
 
                 renderizarLista();
                 cargarGrafica();
-            } catch (e) { console.error("Error en tablero"); }
+            } catch (e) { console.error("Error cargando tablero"); }
         }
 
         async function verUsuarios() {
@@ -188,7 +189,7 @@
                 const res = await CONFIG.solicitar('/admin/usuarios');
                 const lista = await res.json();
                 
-                // CORRECCIÓN: Renderizar basado en el nuevo formato de objetos
+                // Mapeo correcto de los objetos del servidor
                 cuerpo.innerHTML = lista.map(u => `
                     <tr class="hover:bg-blue-50/50 transition-colors">
                         <td class="p-4 font-black text-blue-600 text-lg">#${u.id}</td>
@@ -200,13 +201,12 @@
                         </td>
                     </tr>`).join('');
             } catch (e) { 
-                cuerpo.innerHTML = '<tr><td colspan="3" class="p-4 text-red-500 text-center">Error al cargar usuarios.</td></tr>'; 
+                cuerpo.innerHTML = '<tr><td colspan="3" class="p-4 text-red-500 text-center">No autorizado o error de red.</td></tr>'; 
             }
         }
 
         async function generarToken() {
             const btn = document.getElementById('txtToken');
-            const originalText = btn.innerText;
             btn.innerText = "⏳ ESPERE...";
             try {
                 const res = await CONFIG.solicitar('/admin/generar-codigo');
@@ -333,7 +333,7 @@
             document.getElementById('modalUsuarios').classList.add('hidden');
         }
 
-        // Inicio automático
+        // Inicio
         cargarTablero();
         setInterval(cargarTablero, 60000);
     </script>
