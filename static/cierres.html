@@ -34,9 +34,10 @@
                 <button onclick="cargarDias()" class="bg-white border-2 border-gray-200 text-gray-600 px-4 py-2 rounded-xl font-bold text-xs hover:bg-gray-50 transition-all flex items-center gap-2 shadow-sm uppercase">
                     🔄 Actualizar
                 </button>
-                <a href="/static/index.html" class="bg-gray-800 text-white px-6 py-2 rounded-xl font-bold shadow-lg hover:bg-gray-700 transition-all flex items-center gap-2 uppercase text-xs">
+                
+                <button onclick="window.location.href='/static/index.html'" class="bg-gray-800 text-white px-6 py-2 rounded-xl font-bold shadow-lg hover:bg-gray-700 transition-all flex items-center gap-2 uppercase text-xs cursor-pointer">
                     ⬅ Volver
-                </a>
+                </button>
             </div>
         </div>
 
@@ -54,7 +55,6 @@
         const token = localStorage.getItem('fruverToken');
         const username = localStorage.getItem('fruverUser');
 
-        // Verificación de sesión
         if (!token) window.location.href = "/static/login.html";
         
         document.getElementById('txtUser').innerText = `USUARIO: ${username ? username.toUpperCase() : 'INVITADO'}`;
@@ -65,13 +65,10 @@
             try {
                 const res = await CONFIG.solicitar('/analisis/resumen_dias');
                 const dias = await res.json();
-
-                // Ordenar por fecha descendente
                 dias.sort((a, b) => b.fecha.localeCompare(a.fecha));
-
                 renderizar(dias);
             } catch (e) {
-                document.getElementById('gridDias').innerHTML = '<div class="col-span-full text-center text-red-400 font-black">ERROR DE CONEXIÓN CON EL SERVIDOR</div>';
+                document.getElementById('gridDias').innerHTML = '<div class="col-span-full text-center text-red-400 font-black">ERROR DE CONEXIÓN</div>';
             }
         }
 
@@ -80,73 +77,44 @@
             contenedor.innerHTML = '';
 
             if (dias.length === 0) {
-                contenedor.innerHTML = `<div class="col-span-full text-center py-10 text-gray-400 font-bold uppercase">No hay registros para depurar.</div>`;
+                contenedor.innerHTML = `<div class="col-span-full text-center py-10 text-gray-400 font-bold uppercase">No hay registros.</div>`;
                 return;
             }
 
             dias.forEach((d, index) => {
-                const pendientePagar = parseFloat(d.pendiente_pagar || 0);
-                const pendienteCobrar = parseFloat(d.pendiente_cobrar || 0);
+                const pPagar = parseFloat(d.pendiente_pagar || 0);
+                const pCobrar = parseFloat(d.pendiente_cobrar || 0);
+                const estaBloqueado = pPagar > 0 || pCobrar > 0;
 
-                const estaBloqueado = pendientePagar > 0 || pendienteCobrar > 0;
-
-                let borde = estaBloqueado ? "border-red-500" : "border-green-500";
-                let iconoEstado = estaBloqueado ? "⛔" : "✅";
-                let textoEstado = estaBloqueado ? "CUENTAS PENDIENTES" : "DÍA PAZ Y SALVO";
-                let colorTexto = estaBloqueado ? "text-red-500" : "text-green-600";
-
-                let detallesDeudaHTML = "";
-                if (estaBloqueado) {
-                    if (pendientePagar > 0) {
-                        detallesDeudaHTML += `
-                                <div class="flex justify-between items-center bg-red-50 p-2 rounded-lg border border-red-100 mb-1">
-                                    <span class="text-[9px] font-black text-red-400 uppercase">Debes:</span>
-                                    <span class="font-black text-red-600 text-xs">${CONFIG.formatearMoneda(pendientePagar)}</span>
-                                </div>`;
-                    }
-                    if (pendienteCobrar > 0) {
-                        detallesDeudaHTML += `
-                                <div class="flex justify-between items-center bg-blue-50 p-2 rounded-lg border border-blue-100 mb-1">
-                                    <span class="text-[9px] font-black text-blue-400 uppercase">Te Deben:</span>
-                                    <span class="font-black text-blue-600 text-xs">${CONFIG.formatearMoneda(pendienteCobrar)}</span>
-                                </div>`;
-                    }
-                } else {
-                    detallesDeudaHTML = `
-                            <div class="bg-green-50 p-3 rounded-xl text-center border border-green-100 mb-2">
-                                <p class="text-green-600 font-black text-xs uppercase italic">✨ Todo pagado</p>
-                            </div>`;
-                }
-
-                const btnClass = estaBloqueado
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-gray-900 hover:bg-red-600 text-white shadow-lg cursor-pointer";
-
-                const accionClick = estaBloqueado
-                    ? "Swal.fire('Día Bloqueado', 'Hay deudas o cobros pendientes en esta fecha. Ve al Historial y márcalos como pagados.', 'warning')"
-                    : `borrarDia('${d.fecha}')`;
-
+                const borde = estaBloqueado ? "border-red-500" : "border-green-500";
                 const html = `
-                        <div class="bg-white rounded-[2rem] shadow-xl border-t-8 ${borde} overflow-hidden transform transition-all hover:scale-[1.02] animate-fade-up" style="animation-delay: ${index * 0.05}s">
-                            <div class="p-6 border-b border-gray-100 flex justify-between items-center">
-                                <div>
-                                    <h3 class="font-black text-xl tracking-tighter capitalize text-gray-800">${formatearFechaVisual(d.fecha)}</h3>
-                                    <p class="text-[10px] font-bold uppercase text-gray-400 mt-1">${d.items} movimientos</p>
-                                </div>
-                                <div class="text-2xl">${iconoEstado}</div>
+                    <div class="bg-white rounded-[2rem] shadow-xl border-t-8 ${borde} overflow-hidden transform transition-all hover:scale-[1.02] animate-fade-up" style="animation-delay: ${index * 0.05}s">
+                        <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                            <div>
+                                <h3 class="font-black text-xl tracking-tighter capitalize text-gray-800">${formatearFechaVisual(d.fecha)}</h3>
+                                <p class="text-[10px] font-bold uppercase text-gray-400 mt-1">${d.items} movimientos</p>
                             </div>
-                            <div class="p-6">
-                                <div class="mb-4">${detallesDeudaHTML}</div>
-
-                                <p class="text-center text-[10px] font-black uppercase mb-4 tracking-widest ${colorTexto}">
-                                    ${textoEstado}
-                                </p>
-
-                                <button onclick="${accionClick}" class="w-full py-4 rounded-xl font-black text-xs uppercase transition-all ${btnClass}">
-                                    ${!estaBloqueado ? '🗑️ CERRAR / BORRAR DÍA' : '🔒 BLOQUEADO'}
-                                </button>
+                            <div class="text-2xl">${estaBloqueado ? "⛔" : "✅"}</div>
+                        </div>
+                        <div class="p-6">
+                            <div class="mb-4">
+                                ${estaBloqueado ? `
+                                    <div class="bg-red-50 p-2 rounded-lg border border-red-100 mb-1 flex justify-between">
+                                        <span class="text-[9px] font-black text-red-400 uppercase">Debes:</span>
+                                        <span class="font-black text-red-600 text-xs">${CONFIG.formatearMoneda(pPagar)}</span>
+                                    </div>
+                                    <div class="bg-blue-50 p-2 rounded-lg border border-blue-100 flex justify-between">
+                                        <span class="text-[9px] font-black text-blue-400 uppercase">Te Deben:</span>
+                                        <span class="font-black text-blue-600 text-xs">${CONFIG.formatearMoneda(pCobrar)}</span>
+                                    </div>
+                                ` : `<div class="bg-green-50 p-3 rounded-xl text-center border border-green-100"><p class="text-green-600 font-black text-xs uppercase">✨ Todo pagado</p></div>`}
                             </div>
-                        </div>`;
+                            <button onclick="${estaBloqueado ? "Swal.fire('Día Bloqueado', 'Hay deudas pendientes.', 'warning')" : `borrarDia('${d.fecha}')`}" 
+                                    class="w-full py-4 rounded-xl font-black text-xs uppercase transition-all ${estaBloqueado ? 'bg-gray-100 text-gray-400' : 'bg-gray-900 hover:bg-red-600 text-white shadow-lg'}">
+                                ${estaBloqueado ? '🔒 BLOQUEADO' : '🗑️ CERRAR DÍA'}
+                            </button>
+                        </div>
+                    </div>`;
                 contenedor.insertAdjacentHTML('beforeend', html);
             });
         }
@@ -154,34 +122,27 @@
         async function borrarDia(fecha) {
             Swal.fire({
                 title: '¿Cerrar Día?',
-                text: `Vas a eliminar permanentemente las operaciones del ${fecha}.`,
+                text: `Se borrarán los datos del ${fecha}.`,
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6',
-                confirmButtonText: 'SÍ, BORRAR TODO',
-                cancelButtonText: 'CANCELAR',
-                borderRadius: '2rem'
+                confirmButtonText: 'SÍ, BORRAR TODO'
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     try {
                         const res = await CONFIG.solicitar(`/borrar_dia_completo?fecha=${fecha}`, { method: 'DELETE' });
                         if (res.ok) {
-                            Swal.fire("¡Día Cerrado!", "Registro eliminado correctamente.", "success");
+                            Swal.fire("¡Éxito!", "Día cerrado.", "success");
                             cargarDias();
                         }
-                    } catch (e) {
-                        Swal.fire("Error", "No se pudo procesar la solicitud", "error");
-                    }
+                    } catch (e) { }
                 }
             });
         }
 
         function formatearFechaVisual(fechaStr) {
-            try {
-                const date = new Date(fechaStr + 'T00:00:00');
-                return date.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'long' });
-            } catch (e) { return fechaStr; }
+            const date = new Date(fechaStr + 'T00:00:00');
+            return date.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'long' });
         }
     </script>
 </body>
