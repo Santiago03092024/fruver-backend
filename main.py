@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from fastapi.responses import FileResponse
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -26,6 +27,10 @@ app = FastAPI(title="FruverOS Pro")
 
 # --- CONEXIÓN CON EL FRONTEND (CARPETA STATIC) ---
 # Esto hace que Python pueda leer tus archivos HTML, CSS y JS
+# --- ESTO ES LO QUE TE FALTA ---
+@app.get("/")
+async def read_index():
+    return FileResponse('static/index.html')
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # --- CONFIGURACIÓN DE SEGURIDAD ---
@@ -458,3 +463,4 @@ def marcar_movimiento_pagado(mov_id: int, db: Session = Depends(get_db)):
         
     db.commit()
     return {"status": "success", "nuevo_estado": mov.pagado}
+
