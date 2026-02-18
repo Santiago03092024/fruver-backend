@@ -53,4 +53,3 @@ class Movimiento(Base):
     fecha_pago = Column(DateTime, nullable=True)
 
     fecha_pago = Column(DateTime, nullable=True)
-
