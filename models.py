@@ -32,7 +32,7 @@ class Movimiento(Base):
     producto = Column(String, nullable=True) 
 
     # 1. CAMBIO DE FLOAT A NUMERIC: 
-    # Garantiza que no se pierdan centavos en las cuentas (Precisión de 10 dígitos, 2 decimales)
+    # Garantiza que no se pierdan centavos en las cuentas (PrecisiÃ³n de 10 digitos, 2 decimales)
     cantidad = Column(Numeric(10, 2), default=0)
     precio_unitario = Column(Numeric(10, 2), default=0)
     monto = Column(Numeric(10, 2), default=0)
@@ -46,6 +46,7 @@ class Movimiento(Base):
     proveedor_id = Column(Integer, ForeignKey("proveedores.id"))
     proveedor = relationship("Proveedor", back_populates="movimientos")
 
-    # Campos de Conciliación (Se mantienen intactos)
+    # Campos de ConciliaciÃ³n (Se mantienen intactos)
     pagado = Column(Boolean, default=False)  
+
     fecha_pago = Column(DateTime, nullable=True)
