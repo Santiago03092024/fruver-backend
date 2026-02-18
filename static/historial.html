@@ -1,0 +1,432 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/airbnb.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FruverOS Pro - Auditoría</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .bg-pattern {
+            background-color: #f8fafc;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .badge-compra {
+            background: #fff7ed;
+            color: #ea580c;
+            border: 1px solid #ffedd5;
+        }
+
+        .badge-venta {
+            background: #eff6ff;
+            color: #2563eb;
+            border: 1px solid #dbeafe;
+        }
+
+        .badge-pago {
+            background: #faf5ff;
+            color: #9333ea;
+            border: 1px solid #f3e8ff;
+        }
+
+        .segment-btn.active {
+            background: white;
+            color: #0f172a;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+            opacity: 0;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-pattern min-h-screen text-gray-800 p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 no-print">
+            <div>
+                <h1 class="text-3xl font-black text-gray-800 tracking-tight flex items-center gap-2">📜 Historial</h1>
+                <p id="txtUser" class="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Usuario: ...</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="descargarPDF()" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-xl font-bold shadow-lg shadow-red-200 transition-all flex items-center gap-2 text-xs uppercase">🖨️ PDF</button>
+                <a href="index.html" class="bg-white border-2 border-gray-200 text-gray-600 px-5 py-2 rounded-xl font-bold hover:bg-gray-50 transition-all text-xs uppercase">⬅ Volver</a>
+            </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 mb-6 no-print">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                <div class="col-span-1 md:col-span-5">
+                    <label class="block text-[9px] font-black text-gray-400 uppercase mb-1 ml-1">Buscar Cliente/Proveedor</label>
+                    <input type="text" id="filtroNombre" list="listaNombres" placeholder="Escribe para buscar..." class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none uppercase focus:border-green-500 transition-colors" onkeyup="if(event.key === 'Enter') resetYPaginacion()">
+                </div>
+                <div class="col-span-1 md:col-span-4">
+                    <label class="block text-[9px] font-black text-gray-400 uppercase mb-1 ml-1">Fecha</label>
+                    <input type="text" id="filtroFecha" placeholder="Seleccionar Fecha" class="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-600 text-sm outline-none cursor-pointer focus:border-green-500 transition-colors">
+                </div>
+                <div class="col-span-1 md:col-span-3 flex gap-1">
+                    <button onclick="resetYPaginacion()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl uppercase text-xs hover:bg-blue-700 shadow-md">Buscar</button>
+                    <button onclick="limpiarFiltros()" class="bg-gray-100 text-gray-500 font-bold px-4 rounded-xl hover:bg-gray-200">✕</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="panelResumen" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 no-print animate-fade-in">
+            <div class="bg-blue-50 p-6 rounded-2xl border border-blue-100 shadow-sm text-center relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-2 opacity-10 text-4xl">📈</div>
+                <p class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Total Ventas</p>
+                <p id="cardVentas" class="text-3xl font-black text-blue-600 tracking-tight">$ 0</p>
+            </div>
+
+            <div class="bg-orange-50 p-6 rounded-2xl border border-orange-100 shadow-sm text-center relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-2 opacity-10 text-4xl">🛒</div>
+                <p class="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Total Compras</p>
+                <p id="cardCompras" class="text-3xl font-black text-orange-600 tracking-tight">$ 0</p>
+            </div>
+
+            <div id="cardUtilidadBox" class="bg-gray-800 p-4 rounded-2xl shadow-lg border border-gray-700 text-center relative overflow-hidden flex flex-col justify-center">
+                <div class="absolute top-0 right-0 p-2 opacity-10 text-4xl text-white">💰</div>
+                <div>
+                    <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Utilidad (Ventas - Compras)</p>
+                    <p id="cardUtilidad" class="text-2xl font-black text-white tracking-tight">$ 0</p>
+                </div>
+                <div class="w-full h-px bg-gray-600 my-2"></div>
+                <div>
+                    <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Saldo Real Pendiente</p>
+                    <p id="cardSaldoPendiente" class="text-xl font-black text-yellow-400 tracking-tight">$ 0</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex bg-gray-200 p-1 rounded-xl mb-6 no-print gap-1">
+            <div onclick="filtrarTipo('TODO')" id="btnTodo" class="flex-1 text-center py-2 text-xs font-bold rounded-lg cursor-pointer transition-all bg-white shadow text-gray-800 segment-btn active">Ver Todo</div>
+            <div onclick="filtrarTipo('VENTA')" id="btnVentas" class="flex-1 text-center py-2 text-xs font-bold rounded-lg cursor-pointer transition-all text-gray-500 segment-btn">Ventas</div>
+            <div onclick="filtrarTipo('COMPRA')" id="btnCompras" class="flex-1 text-center py-2 text-xs font-bold rounded-lg cursor-pointer transition-all text-gray-500 segment-btn">Compras</div>
+            <div onclick="filtrarTipo('PAGO')" id="btnPagos" class="flex-1 text-center py-2 text-xs font-bold rounded-lg cursor-pointer transition-all text-gray-500 segment-btn">Abonos</div>
+        </div>
+
+        <div id="areaImpresion" class="bg-white rounded-[1rem] shadow-xl overflow-hidden min-h-[500px] relative border border-gray-100">
+            <div id="cabeceraPDF" class="hidden p-8 border-b border-gray-100">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 class="text-3xl font-black text-gray-800 tracking-tighter italic">FruverOS <span class="text-green-600">Pro</span></h2>
+                        <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Reporte Oficial</p>
+                    </div>
+                    <div class="text-right">
+                        <p id="fechaImpresion" class="text-sm font-bold text-gray-600"></p>
+                        <p id="clienteImpresion" class="text-lg font-black text-gray-800 uppercase mt-1"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-0">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-900 text-white text-[10px] uppercase tracking-wider">
+                            <th class="p-4 font-bold">Fecha</th>
+                            <th class="p-4 font-bold">Nombre</th>
+                            <th class="p-4 font-bold">Detalle</th>
+                            <th class="p-4 font-bold text-right">Monto</th>
+                            <th class="p-4 font-bold text-center">Estado</th>
+                            <th class="p-4 font-bold text-center no-print">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaHistorial" class="text-xs text-gray-600 font-medium"></tbody>
+                    <tfoot id="footerTabla" class="bg-gray-50 border-t border-gray-200 font-bold text-gray-700 text-xs"></tfoot>
+                </table>
+            </div>
+        </div>
+
+        <div class="flex justify-between items-center mt-6 p-4 bg-white rounded-2xl shadow-sm no-print border border-gray-100">
+            <button id="btnAnterior" onclick="paginaAnterior()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-6 py-2 rounded-xl font-bold text-xs disabled:opacity-30">⬅ ANTERIOR</button>
+            <span id="pageInfo" class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Cargando...</span>
+            <button id="btnSiguiente" onclick="paginaSiguiente()" class="bg-gray-800 hover:bg-black text-white px-6 py-2 rounded-xl font-bold text-xs disabled:opacity-30">SIGUIENTE ➡</button>
+        </div>
+    </div>
+
+    <datalist id="listaNombres"></datalist>
+    <script src="config.js"></script>
+
+    <script>
+        const token = localStorage.getItem('fruverToken');
+        const username = localStorage.getItem('fruverUser');
+
+        let skip = 0;
+        const limit = 50;
+        let cacheOriginal = [];
+        let filtroTipoActual = 'TODO';
+
+        if (!token) window.location.href = "login.html";
+        document.getElementById('txtUser').innerText = `USUARIO: ${username ? username.toUpperCase() : 'INVITADO'}`;
+
+        window.onload = function () {
+            flatpickr("#filtroFecha", {
+                locale: "es", dateFormat: "Y-m-d", theme: "airbnb",
+                onChange: function () { resetYPaginacion(); }
+            });
+            cargarListaProveedores();
+            cargarHistorial();
+        };
+
+        async function cargarListaProveedores() {
+            try {
+                const res = await CONFIG.solicitar('/proveedores');
+                const data = await res.json();
+                const unicos = [...new Set(data.map(p => p.nombre))];
+                document.getElementById('listaNombres').innerHTML = unicos.map(n => `<option value="${n}">`).join('');
+            } catch (e) { }
+        }
+
+        async function cargarHistorial() {
+            try {
+                const nombre = document.getElementById('filtroNombre').value;
+                const fecha = document.getElementById('filtroFecha').value;
+
+                let url = `/historial?skip=${skip}&limit=${limit}`;
+                if (nombre) url += `&nombre=${encodeURIComponent(nombre)}`;
+                if (fecha) url += `&fecha=${fecha}`;
+                if (filtroTipoActual !== 'TODO') url += `&tipo=${filtroTipoActual}`;
+
+                const res = await CONFIG.solicitar(url);
+                if (!res.ok) return CONFIG.notificar("Error", "No se pudo cargar", "error");
+
+                const respuesta = await res.json();
+                cacheOriginal = respuesta.data || [];
+                const total = respuesta.total || 0;
+
+                renderizar();
+
+                document.getElementById('pageInfo').innerText = `Mostrando ${cacheOriginal.length} de ${total}`;
+
+                const btnNext = document.getElementById("btnSiguiente");
+                const btnPrev = document.getElementById("btnAnterior");
+                btnNext.disabled = (skip + limit >= total);
+                btnNext.classList.toggle('opacity-30', skip + limit >= total);
+                btnPrev.disabled = (skip === 0);
+                btnPrev.classList.toggle('opacity-30', skip === 0);
+
+            } catch (e) { console.error(e); }
+        }
+
+        function calcularResumenEnPantalla(datos) {
+            let sumCompras = 0;
+            let sumVentas = 0;
+            let saldoReal = 0;
+
+            datos.forEach(item => {
+                const valor = parseFloat(item.monto);
+                if (item.tipo === 'COMPRA') sumCompras += valor;
+                if (item.tipo === 'VENTA') sumVentas += valor;
+
+                if (item.tipo === 'PAGO') {
+                    saldoReal -= valor;
+                } else {
+                    if (!item.pagado) saldoReal += valor;
+                }
+            });
+
+            const utilidad = sumVentas - sumCompras;
+
+            document.getElementById('cardVentas').innerText = CONFIG.formatearMoneda(sumVentas);
+            document.getElementById('cardCompras').innerText = CONFIG.formatearMoneda(sumCompras);
+
+            const divUtilidad = document.getElementById('cardUtilidad');
+            divUtilidad.innerText = CONFIG.formatearMoneda(utilidad);
+            divUtilidad.className = utilidad >= 0 ? "text-2xl font-black text-green-400 tracking-tight" : "text-2xl font-black text-red-400 tracking-tight";
+
+            const divSaldo = document.getElementById('cardSaldoPendiente');
+            divSaldo.innerText = CONFIG.formatearMoneda(saldoReal);
+            if (saldoReal <= 0) {
+                divSaldo.className = "text-xl font-black text-green-400 tracking-tight";
+            } else {
+                divSaldo.className = "text-xl font-black text-yellow-400 tracking-tight";
+            }
+        }
+
+        function renderizar() {
+            const tbody = document.getElementById('tablaHistorial');
+            let datos = cacheOriginal;
+
+            calcularResumenEnPantalla(datos);
+
+            if (datos.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-gray-300 font-black uppercase text-[10px]">Sin resultados</td></tr>`;
+                document.getElementById('footerTabla').innerHTML = '';
+                return;
+            }
+
+            tbody.innerHTML = datos.map(item => {
+                const esPago = item.tipo === 'PAGO';
+                let badge = esPago ?
+                    `<span class="badge badge-pago">Abono</span>` :
+                    (item.tipo === 'COMPRA' ? `<span class="badge badge-compra">Compra</span>` : `<span class="badge badge-venta">Venta</span>`);
+
+                // --- LÓGICA DE DETALLE (📦) ---
+                // Aquí verificamos que los datos existan antes de pintar la cajita
+                let infoDetallada = "";
+                const cant = parseFloat(item.cantidad);
+                const prec = parseFloat(item.precio_unitario);
+
+                if (cant > 0 && prec > 0) {
+                    infoDetallada = `
+                            <div class="mt-1 flex items-center gap-1 text-[10px] text-gray-500 font-bold bg-gray-50 px-2 py-1 rounded w-max border border-gray-100">
+                                <span>📦 ${cant}</span>
+                                <span class="text-gray-300">|</span>
+                                <span>Unit: ${CONFIG.formatearMoneda(prec)}</span>
+                            </div>
+                         `;
+                }
+
+                return `
+                        <tr class="hover:bg-gray-50 border-b border-gray-100 transition-colors">
+                            <td class="p-4 font-bold text-gray-400">${item.fecha}</td>
+                            <td class="p-4 font-black text-gray-800 uppercase">${item.proveedor}</td>
+                            <td class="p-4">
+                                <div class="flex flex-col">
+                                    <span class="font-bold text-gray-700 uppercase">${item.producto || 'Sin descripción'}</span>
+                                    ${infoDetallada}
+                                    <div class="mt-1">${badge}</div>
+                                </div>
+                            </td>
+                            <td class="p-4 text-right font-black text-gray-800">${CONFIG.formatearMoneda(item.monto)}</td>
+                            <td class="p-4 text-center">
+                                ${!esPago ? (item.pagado
+                        ? '<span class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded">PAGADO</span>'
+                        : '<span class="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded">DEBE</span>')
+                        : '<span class="text-[10px] font-bold text-purple-600">OK</span>'}
+                            </td>
+                            <td class="p-4 text-center no-print flex justify-center gap-2">
+                                 ${!esPago ? `
+                                    <button onclick="togglePago(${item.id})" class="shadow-sm border border-gray-200 rounded-lg px-3 py-1 hover:bg-green-50 active:scale-95 transition-all text-xs flex items-center gap-1" title="Cambiar Estado">
+                                        ${item.pagado ? '↩️' : '💵 Pagar'}
+                                    </button>` : ''}
+                                <button onclick="eliminarMov(${item.id}, '${item.producto}')" class="text-gray-300 hover:text-red-500 text-lg transition-colors px-2">🗑️</button>
+                            </td>
+                        </tr>
+                    `;
+            }).join('');
+
+            let saldoPagina = datos.reduce((acc, item) => {
+                const val = parseFloat(item.monto);
+                if (item.tipo === 'PAGO') return acc - val;
+                if (!item.pagado) return acc + val;
+                return acc;
+            }, 0);
+
+            let textoFooter = "Saldo Pendiente Visible:";
+            let colorFooter = "text-gray-900";
+            if (saldoPagina < 0) {
+                textoFooter = "Saldo a Favor (Crédito):";
+                colorFooter = "text-green-600";
+            }
+
+            document.getElementById('footerTabla').innerHTML = `
+                    <tr>
+                        <td colspan="3" class="text-right p-4 uppercase text-xs text-gray-400 font-black">${textoFooter}</td>
+                        <td class="text-right p-4 font-black ${colorFooter} text-sm border-t border-gray-200">
+                            ${CONFIG.formatearMoneda(Math.abs(saldoPagina))}
+                        </td>
+                        <td colspan="2"></td>
+                    </tr>
+                `;
+        }
+
+        async function togglePago(id) {
+            try {
+                const res = await CONFIG.solicitar(`/marcar_pagado/${id}`, { method: 'POST' });
+                if (res.ok) {
+                    const toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+                    toast.fire({ icon: 'success', title: 'Estado actualizado' });
+                    cargarHistorial();
+                } else { CONFIG.notificar("Error", "No se pudo actualizar", "error"); }
+            } catch (e) { CONFIG.notificar("Error", "Error de conexión", "error"); }
+        }
+
+        function filtrarTipo(tipo) {
+            filtroTipoActual = tipo;
+            const botones = { 'TODO': 'btnTodo', 'COMPRA': 'btnCompras', 'VENTA': 'btnVentas', 'PAGO': 'btnPagos' };
+            Object.keys(botones).forEach(key => document.getElementById(botones[key]).classList.toggle('active', key === tipo));
+            Object.keys(botones).forEach(key => document.getElementById(botones[key]).classList.toggle('bg-white', key === tipo));
+            resetYPaginacion();
+        }
+
+        async function eliminarMov(id, nombre) {
+            Swal.fire({
+                title: '¿Borrar?', text: nombre, icon: 'warning',
+                showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sí, borrar'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    try {
+                        const res = await CONFIG.solicitar(`/movimiento/${id}`, { method: 'DELETE' });
+                        if (res.ok) cargarHistorial();
+                    } catch (e) { }
+                }
+            });
+        }
+
+        function resetYPaginacion() { skip = 0; cargarHistorial(); }
+        function paginaSiguiente() { skip += limit; cargarHistorial(); }
+        function paginaAnterior() { if (skip >= limit) { skip -= limit; cargarHistorial(); } }
+
+        function limpiarFiltros() {
+            document.getElementById('filtroNombre').value = '';
+            const fp = document.querySelector("#filtroFecha")._flatpickr;
+            if (fp) fp.clear();
+            filtroTipoActual = 'TODO';
+            resetYPaginacion();
+        }
+
+        function descargarPDF() {
+            const n = document.getElementById('filtroNombre').value || "General";
+            Swal.fire({ title: 'Generando PDF...', didOpen: () => Swal.showLoading() });
+            document.getElementById('cabeceraPDF').classList.remove('hidden');
+            document.getElementById('fechaImpresion').innerText = new Date().toLocaleDateString();
+            document.getElementById('clienteImpresion').innerText = n.toUpperCase();
+
+            const element = document.getElementById('areaImpresion');
+            const botones = document.querySelectorAll('.no-print');
+            botones.forEach(b => b.style.display = 'none');
+
+            html2pdf().set({ margin: 0.2, filename: `Reporte_${n}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' } })
+                .from(element).save().then(() => {
+                    document.getElementById('cabeceraPDF').classList.add('hidden');
+                    botones.forEach(b => b.style.display = '');
+                    Swal.close();
+                });
+        }
+    </script>
+</body>
+</html>

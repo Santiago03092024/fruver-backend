@@ -1,0 +1,219 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FruverOS Pro - Acceso Seguro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .bg-custom {
+            background: linear-gradient(135deg, #166534 0%, #064e3b 100%);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .transition-all {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        /* Animación de entrada */
+        .animate-zoom {
+            animation: zoomIn 0.4s ease-out;
+        }
+
+        @keyframes zoomIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+<body class="bg-custom flex items-center justify-center min-h-screen p-4">
+
+    <div class="glass-card p-10 rounded-[3rem] shadow-2xl w-full max-w-md animate-zoom">
+
+        <div class="text-center mb-10">
+            <div class="bg-green-100 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-inner">
+                <span class="text-4xl">🍏</span>
+            </div>
+            <h1 class="text-4xl font-black text-green-800 italic tracking-tighter">FruverOS <span class="text-green-500">Pro</span></h1>
+            <p class="text-gray-400 font-bold uppercase text-[10px] tracking-[0.3em] mt-2">Sistema Privado de Gestión</p>
+        </div>
+
+        <div id="loginForm" class="space-y-5">
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase ml-4 mb-1 block tracking-widest">Usuario</label>
+                <input id="logUser" type="text" placeholder="TU USUARIO"
+                       class="w-full p-4 border-2 border-gray-50 rounded-2xl outline-none focus:border-green-500 transition-all font-bold text-gray-700 bg-gray-50/50 uppercase">
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase ml-4 mb-1 block tracking-widest">Contraseña</label>
+                <input id="logPass" type="password" placeholder="••••••••"
+                       class="w-full p-4 border-2 border-gray-50 rounded-2xl outline-none focus:border-green-500 transition-all font-bold text-gray-700 bg-gray-50/50">
+            </div>
+
+            <button onclick="login()" class="w-full bg-green-700 text-white font-black py-4 rounded-2xl hover:bg-green-800 shadow-xl transition-all transform hover:scale-[1.02] active:scale-95 text-sm uppercase tracking-widest">
+                Ingresar al Sistema
+            </button>
+
+            <div class="flex flex-col gap-4 mt-6">
+                <button onclick="mostrarSeccion('recover')" class="text-[10px] font-black text-green-600 hover:text-green-800 uppercase tracking-widest text-center transition-colors">
+                    ¿Olvidó su contraseña? Use Token Admin
+                </button>
+                <div class="relative flex items-center justify-center">
+                    <div class="w-full border-t border-gray-100"></div>
+                    <span class="absolute bg-white px-3 text-[8px] text-gray-300 font-black uppercase">O también</span>
+                </div>
+                <button onclick="mostrarSeccion('register')" class="w-full bg-gray-50 text-gray-500 font-black py-4 rounded-2xl hover:bg-gray-100 transition-all text-[11px] uppercase tracking-widest border border-gray-100">
+                    Crear cuenta nueva
+                </button>
+            </div>
+        </div>
+
+        <div id="registerForm" class="hidden space-y-5">
+            <h2 class="text-xl font-black text-center text-gray-700 uppercase tracking-tight mb-6">Nuevo Perfil</h2>
+            <input id="regUser" type="text" placeholder="USUARIO DESEADO" class="w-full p-4 border-2 border-gray-50 rounded-2xl outline-none focus:border-blue-500 font-bold bg-gray-50/50 uppercase">
+            <input id="regPass" type="password" placeholder="CONTRASEÑA SEGURA" class="w-full p-4 border-2 border-gray-50 rounded-2xl outline-none focus:border-blue-500 font-bold bg-gray-50/50">
+            <button onclick="registro()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 shadow-xl transition-all uppercase text-sm tracking-widest">Registrarme ahora</button>
+            <button onclick="mostrarSeccion('login')" class="w-full text-gray-400 font-black py-2 text-[10px] uppercase text-center hover:text-gray-600">⬅ Volver al inicio</button>
+        </div>
+
+        <div id="recoverForm" class="hidden space-y-5">
+            <div class="bg-amber-50 p-4 rounded-2xl border border-amber-100 text-center mb-4">
+                <p class="text-[9px] text-amber-700 font-black uppercase leading-tight">Seguridad: Requiere código generado por el Administrador</p>
+            </div>
+            <input id="recId" type="number" placeholder="ID DE USUARIO" class="w-full p-4 border-2 border-gray-50 rounded-2xl outline-none focus:border-amber-500 font-bold bg-gray-50/50">
+            <input id="recNewPass" type="password" placeholder="NUEVA CLAVE" class="w-full p-4 border-2 border-gray-50 rounded-2xl outline-none focus:border-amber-500 font-bold bg-gray-50/50">
+            <input id="recToken" type="text" maxlength="4" placeholder="TOKEN" class="w-full p-4 border-2 border-amber-200 bg-amber-50/50 rounded-2xl outline-none focus:border-amber-500 font-black text-center text-2xl tracking-[0.5em] text-amber-700">
+            <button onclick="recuperarClave()" class="w-full bg-amber-500 text-white font-black py-4 rounded-2xl hover:bg-amber-600 shadow-xl transition-all uppercase text-sm tracking-widest">Actualizar Clave</button>
+            <button onclick="mostrarSeccion('login')" class="w-full text-gray-400 font-black py-2 text-[10px] uppercase text-center hover:text-gray-600">⬅ Cancelar</button>
+        </div>
+
+        <p class="text-center text-gray-300 text-[9px] mt-10 font-bold uppercase tracking-[0.2em] italic">© 2026 FruverOS Pro</p>
+    </div>
+
+    <script src="config.js"></script>
+
+    <script>
+        function mostrarSeccion(tipo) {
+            document.getElementById('loginForm').classList.toggle('hidden', tipo !== 'login');
+            document.getElementById('registerForm').classList.toggle('hidden', tipo !== 'register');
+            document.getElementById('recoverForm').classList.toggle('hidden', tipo !== 'recover');
+        }
+
+        // --- LOGIN CON UX POLISH ---
+        async function login() {
+            const u = document.getElementById('logUser').value.trim();
+            const p = document.getElementById('logPass').value.trim();
+
+            if (!u || !p) {
+                return CONFIG.notificar("Campos Vacíos", "Por favor ingresa tu usuario y contraseña", "warning");
+            }
+
+            // Estado de carga visual
+            Swal.fire({
+                title: 'Autenticando...',
+                text: 'Validando acceso seguro',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading() }
+            });
+
+            const formData = new URLSearchParams();
+            formData.append('username', u);
+            formData.append('password', p);
+
+            try {
+                const res = await fetch(`${CONFIG.API_URL}/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    localStorage.setItem('fruverToken', data.access_token);
+                    localStorage.setItem('fruverUser', data.username);
+                    localStorage.setItem('fruverId', data.user_id);
+                    localStorage.setItem('rol', data.rol);
+
+                    // Bienvenida pro
+                    Swal.fire({
+                        icon: 'success',
+                        title: `¡Hola, ${data.username}!`,
+                        text: 'Ingreso exitoso. Cargando el tablero...',
+                        timer: 1500,
+                        showConfirmButton: false,
+                        borderRadius: '2rem'
+                    }).then(() => {
+                        window.location.href = 'index.html';
+                    });
+                } else {
+                    CONFIG.notificar("Acceso Denegado", "Usuario o contraseña incorrectos", "error");
+                }
+            } catch (e) {
+                CONFIG.notificar("Error de Red", "No se pudo conectar con el servidor", "error");
+            }
+        }
+
+        // --- REGISTRO CON UX POLISH ---
+        async function registro() {
+            const u = document.getElementById('regUser').value.trim();
+            const p = document.getElementById('regPass').value.trim();
+            if (!u || !p) return CONFIG.notificar("Datos Incompletos", "Llena ambos campos para registrarte", "warning");
+
+            try {
+                const res = await fetch(`${CONFIG.API_URL}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p })
+                });
+
+                if (res.ok) {
+                    CONFIG.notificar("¡Excelente!", "Cuenta creada con éxito. Ya puedes ingresar.", "success");
+                    mostrarSeccion('login');
+                } else {
+                    const d = await res.json();
+                    CONFIG.notificar("Error", d.detail || "El usuario ya existe", "error");
+                }
+            } catch (e) { CONFIG.notificar("Error de Conexión", "No se pudo realizar el registro", "error"); }
+        }
+
+        // --- RECUPERACIÓN CON UX POLISH ---
+        async function recuperarClave() {
+            const id = document.getElementById('recId').value;
+            const pass = document.getElementById('recNewPass').value;
+            const token = document.getElementById('recToken').value.trim();
+
+            if (!id || !pass || !token) return CONFIG.notificar("Atención", "Todos los campos son obligatorios", "warning");
+
+            try {
+                const url = `${CONFIG.API_URL}/cambiar-password-dinamico?user_id=${id}&nueva_pass=${encodeURIComponent(pass)}&token_admin=${encodeURIComponent(token)}`;
+                const res = await fetch(url, { method: 'POST' });
+
+                if (res.ok) {
+                    CONFIG.notificar("Cambio Exitoso", "Tu contraseña ha sido actualizada correctamente", "success");
+                    mostrarSeccion('login');
+                } else {
+                    CONFIG.notificar("Error de Token", "El código o el ID no son válidos", "error");
+                }
+            } catch (e) { CONFIG.notificar("Error", "Error de comunicación con el servidor", "error"); }
+        }
+    </script>
+</body>
+</html>
