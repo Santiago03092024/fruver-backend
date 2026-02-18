@@ -1,6 +1,9 @@
-﻿from fastapi import FastAPI, Depends, HTTPException, status
+# -*- coding: utf-8 -*-
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles  # <--- IMPORTANTE
+from fastapi.responses import FileResponse   # <--- IMPORTANTE
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, desc, or_
 from database import SessionLocal, engine
@@ -12,15 +15,20 @@ from jose import JWTError, jwt
 import random
 import string
 from pydantic import BaseModel
+import os
 
 # ==========================================
-# 1. CONFIGURACION INICIAL DEL SERVIDOR
+# 1. CONFIGURACIÓN INICIAL DEL SERVIDOR
 # ==========================================
 
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI(title="FruverOS Pro")
 
-# --- CONFIGURACION DE SEGURIDAD ---
+# --- CONEXIÓN CON EL FRONTEND (CARPETA STATIC) ---
+# Esto hace que Python pueda leer tus archivos HTML, CSS y JS
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# --- CONFIGURACIÓN DE SEGURIDAD ---
 SECRET_KEY = "cambia_esto_por_una_clave_larga_y_aleatoria_en_produccion"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 300
@@ -89,7 +97,16 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     return user
 
 # ==========================================
-# 2. LOGIN Y REGISTRO
+# 2. RUTA PRINCIPAL (PÁGINA WEB)
+# ==========================================
+
+@app.get("/")
+async def read_index():
+    # Cuando alguien entre a tu web, le mostramos el index.html
+    return FileResponse('static/index.html')
+
+# ==========================================
+# 3. LOGIN Y REGISTRO
 # ==========================================
 
 @app.post("/register")
@@ -122,7 +139,7 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
     }
 
 # ==========================================
-# 3. SEGURIDAD ADMIN
+# 4. SEGURIDAD ADMIN
 # ==========================================
 
 @app.get("/admin/generar-codigo")
@@ -149,7 +166,7 @@ def listar_usuarios_admin(current_user: models.User = Depends(get_current_user),
     return [[u.id, u.username, u.rol] for u in usuarios]
 
 # ==========================================
-# 4. OPERACIONES PRINCIPALES
+# 5. OPERACIONES PRINCIPALES
 # ==========================================
 
 @app.post("/comprar")
@@ -198,11 +215,7 @@ def registrar_pago(proveedor: str, monto: float, detalle_pago: str = "ABONO / PA
     return {"status": "success"}
 
 # ==========================================
-# 5. HISTORIAL (CORREGIDO Y OPTIMIZADO)
-# ==========================================
-
-# ==========================================
-# 5. HISTORIAL (CORREGIDO)
+# 6. HISTORIAL
 # ==========================================
 
 @app.get("/historial")
@@ -244,14 +257,14 @@ def obtener_historial(
             "proveedor": m.proveedor.nombre,
             "monto": float(m.monto),
             "pagado": m.pagado,
-            # --- AGREGADO: Datos que faltaban ---
             "cantidad": float(m.cantidad) if m.cantidad else 0,
             "precio_unitario": float(m.precio_unitario) if m.precio_unitario else 0
         })
 
     return {"total": total_registros, "data": data_response}
+
 # ==========================================
-# 6. DASHBOARD
+# 7. DASHBOARD
 # ==========================================
 
 @app.get("/saldos-generales")
@@ -300,7 +313,7 @@ def saldos_generales(current_user: models.User = Depends(get_current_user), db: 
     }
 
 # ==========================================
-# 7. ANALISIS (INDENTACIÓN CORREGIDA)
+# 8. ANÁLISIS
 # ==========================================
 
 @app.get("/analisis/ventas-semanales")
@@ -325,10 +338,6 @@ def ventas_semanales(current_user: models.User = Depends(get_current_user), db: 
 
     return {"labels": labels, "ventas": ventas, "compras": compras}
 
-# ==========================================
-# 8. CIERRES Y PAGOS (LOGICA SEGURA)
-# ==========================================
-
 @app.get("/analisis/resumen_dias")
 def resumen_dias(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     # Traemos todos los movimientos
@@ -338,7 +347,6 @@ def resumen_dias(current_user: models.User = Depends(get_current_user), db: Sess
     for m in query:
         f = m.fecha.strftime("%Y-%m-%d") if m.fecha else "---"
         
-        # Si el día no existe en el diccionario, lo inicializamos con contadores en 0
         if f not in agrupado:
             agrupado[f] = {
                 "fecha": f, 
@@ -352,8 +360,6 @@ def resumen_dias(current_user: models.User = Depends(get_current_user), db: Sess
         item["items"] += 1
         item["total_movido"] += float(m.monto)
 
-        # --- LÓGICA DE BLOQUEO ---
-        # Si el movimiento NO está pagado, sumamos a la deuda pendiente de ese día
         if not m.pagado:
             if m.tipo == 'COMPRA':
                 item["pendiente_pagar"] += float(m.monto)
@@ -363,6 +369,10 @@ def resumen_dias(current_user: models.User = Depends(get_current_user), db: Sess
     resultado = list(agrupado.values())
     resultado.sort(key=lambda x: x['fecha'], reverse=True)
     return resultado
+
+# ==========================================
+# 9. OTROS Y CIERRES
+# ==========================================
 
 @app.delete("/borrar_dia_completo")
 def borrar_dia_completo(fecha: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -381,7 +391,6 @@ def pagar_rango_fechas(
     current_user: models.User = Depends(get_current_user), 
     db: Session = Depends(get_db)
 ):
-    # 1. Buscar al proveedor
     prov = db.query(models.Proveedor).filter(
         models.Proveedor.nombre.ilike(nombre.strip()), 
         models.Proveedor.owner_id == current_user.id
@@ -390,7 +399,6 @@ def pagar_rango_fechas(
     if not prov:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")
 
-    # 2. Registrar el PAGO en el sistema
     nuevo_pago = models.Movimiento(
         tipo='PAGO', 
         producto=f"ABONO FACTURAS {f_inicio} AL {f_fin}", 
@@ -401,7 +409,6 @@ def pagar_rango_fechas(
     )
     db.add(nuevo_pago)
     
-    # 3. Buscar deudas pendientes
     deudas = db.query(models.Movimiento).filter(
         models.Movimiento.proveedor_id == prov.id, 
         models.Movimiento.tipo.in_(['COMPRA', 'VENTA']), 
@@ -410,7 +417,6 @@ def pagar_rango_fechas(
         func.date(models.Movimiento.fecha) <= f_fin
     ).order_by(models.Movimiento.fecha.asc()).all() 
 
-    # 4. ALGORITMO DE CONCILIACIÓN (Seguro)
     dinero_disponible = monto_real
 
     for deuda in deudas:
@@ -439,21 +445,16 @@ def eliminar_movimiento(mov_id: int, db: Session = Depends(get_db)):
     if mov: db.delete(mov); db.commit()
     return {"status": "success"}
 
-    # --- PEGAR ESTO AL FINAL DE main.py ---
-
 @app.post("/marcar_pagado/{mov_id}")
 def marcar_movimiento_pagado(mov_id: int, db: Session = Depends(get_db)):
     mov = db.query(models.Movimiento).filter(models.Movimiento.id == mov_id).first()
     if not mov:
         raise HTTPException(status_code=404, detail="Movimiento no encontrado")
     
-    # Invertimos el estado (si estaba pagado pasa a no pagado y viceversa)
     mov.pagado = not mov.pagado
     
-    # Si se marca como pagado, actualizamos la fecha
     if mov.pagado:
         mov.fecha_pago = datetime.now()
         
     db.commit()
-
     return {"status": "success", "nuevo_estado": mov.pagado}
