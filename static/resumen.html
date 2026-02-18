@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -59,7 +59,6 @@
                 opacity: 0;
                 transform: translateY(5px);
             }
-
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -77,7 +76,7 @@
                 </h1>
                 <p id="txtUser" class="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Cargando...</p>
             </div>
-            <a href="index.html" class="bg-gray-800 text-white px-5 py-2 rounded-xl font-bold shadow-lg hover:bg-gray-700 transition-all flex items-center gap-2">
+            <a href="/" class="bg-gray-800 text-white px-5 py-2 rounded-xl font-bold shadow-lg hover:bg-gray-700 transition-all flex items-center gap-2">
                 ⬅ Volver al Tablero
             </a>
         </div>
@@ -217,13 +216,15 @@
         <datalist id="listaNombres"></datalist>
     </div>
 
-    <script src="config.js"></script>
+    <script src="/static/config.js"></script>
 
     <script>
         const token = localStorage.getItem('fruverToken');
         const username = localStorage.getItem('fruverUser');
 
-        if (!token) window.location.href = "login.html";
+        // CORRECCIÓN: Ruta completa login
+        if (!token) window.location.href = "/static/login.html";
+        
         document.getElementById('txtUser').innerText = `USUARIO: ${username ? username.toUpperCase() : 'INVITADO'}`;
 
         let listaCompras = [];
@@ -231,7 +232,6 @@
         let deudaTemp = 0;
 
         window.onload = function () {
-            // Inicializar Calendarios Estilo Airbnb
             const configFlatpickr = {
                 locale: "es",
                 dateFormat: "Y-m-d",
@@ -242,8 +242,6 @@
             flatpickr("#compraFecha", configFlatpickr);
             flatpickr("#ventaFecha", configFlatpickr);
             flatpickr("#abonoFecha", configFlatpickr);
-
-            // Para el rango de fechas, no ponemos defaultDate para obligar a seleccionar
             flatpickr("#fInicio", { ...configFlatpickr, defaultDate: null });
             flatpickr("#fFin", { ...configFlatpickr, defaultDate: null });
 
@@ -285,7 +283,6 @@
             });
         }
 
-        // --- FUNCIONES DE COMPRA ---
         function addCompra() {
             const p = document.getElementById('cProd').value.toUpperCase();
             const u = document.getElementById('cUnidad').value;
@@ -322,7 +319,7 @@
         async function guardarCompra() {
             const prov = document.getElementById('compraProv').value;
             const fecha = document.getElementById('compraFecha').value;
-            if (!prov || listaCompras.length === 0) return CONFIG.notificar("¡Cuidado!", "Agregue proveedor y al menos un producto", "warning");
+            if (!prov || listaCompras.length === 0) return CONFIG.notificar("¡Cuidado!", "Agregue proveedor y productos", "warning");
 
             Swal.fire({ title: 'Guardando...', didOpen: () => { Swal.showLoading() } });
 
@@ -337,7 +334,6 @@
             } catch (e) { CONFIG.notificar("❌ Error", "No se pudo conectar con el servidor", "error"); }
         }
 
-        // --- FUNCIONES DE VENTA ---
         async function guardarVenta() {
             const cli = document.getElementById('ventaCliente').value;
             const mon = document.getElementById('ventaMonto').value;
@@ -356,14 +352,11 @@
             } catch (e) { }
         }
 
-        // --- FUNCIONES DE TESORERÍA / PAGO ---
         function setModoPago(m) {
             const zA = document.getElementById('zonaAbono'), zF = document.getElementById('zonaFechas');
             const btnA = document.getElementById('btnModoAbono'), btnF = document.getElementById('btnModoFechas');
-
             zA.classList.toggle('hidden', m !== 'ABONO');
             zF.classList.toggle('hidden', m === 'ABONO');
-
             if (m === 'ABONO') {
                 btnA.className = "flex-1 py-2 rounded-lg font-bold text-xs bg-white text-purple-700 shadow-sm border border-purple-100";
                 btnF.className = "flex-1 py-2 rounded-lg font-bold text-xs text-gray-400";
@@ -377,7 +370,7 @@
             const n = document.getElementById('pagoNombre').value.trim();
             const m = document.getElementById('abonoMonto').value;
             const f = document.getElementById('abonoFecha').value;
-            if (!n || !m) return CONFIG.notificar("Atención", "Nombre y Monto son obligatorios", "warning");
+            if (!n || !m) return CONFIG.notificar("Atención", "Nombre y Monto requeridos", "warning");
 
             try {
                 const params = `proveedor=${encodeURIComponent(n)}&monto=${m}&detalle_pago=ABONO&fecha_manual=${f}`;
@@ -390,39 +383,28 @@
             } catch (e) { }
         }
 
-        // --- CÁLCULO DE DEUDA POR RANGO DE FECHAS (CORREGIDO) ---
         async function calcDeuda() {
             const n = document.getElementById('pagoNombre').value.trim();
-            // Obtenemos las fechas del flatpickr
             const f1 = document.getElementById('fInicio').value;
             const f2 = document.getElementById('fFin').value;
 
-            if (!n) return CONFIG.notificar("Falta Nombre", "Seleccione un cliente/proveedor primero", "warning");
-            if (!f1 || !f2) return CONFIG.notificar("Faltan Fechas", "Seleccione fecha inicio y fin", "warning");
+            if (!n || !f1 || !f2) return CONFIG.notificar("Faltan datos", "Complete nombre y fechas", "warning");
 
             Swal.fire({ title: 'Calculando...', didOpen: () => { Swal.showLoading() } });
 
             try {
-                // 1. Traemos TODO el historial de esa persona (con un límite alto para asegurar traer todo)
                 const res = await CONFIG.solicitar(`/historial?limit=1000&nombre=${encodeURIComponent(n)}`);
                 const data = await res.json();
-
-                // 2. Filtramos manualmente en el cliente para máxima precisión
                 let total = 0;
                 const dInicio = new Date(f1); dInicio.setHours(0, 0, 0, 0);
                 const dFin = new Date(f2); dFin.setHours(23, 59, 59, 999);
-
-                // IMPORTANTE: data.data contiene el array de movimientos
                 const movimientos = data.data || [];
 
                 movimientos.forEach(mov => {
-                    // Convertir fecha del movimiento (string YYYY-MM-DD...) a objeto Date
-                    const fechaMov = new Date(mov.fecha.split(' ')[0] + 'T00:00:00'); // Forzamos hora local para evitar líos de zona horaria básica
-
-                    // Lógica: Está en el rango + Es Compra o Venta + NO está pagado
+                    const fechaMov = new Date(mov.fecha.split(' ')[0] + 'T00:00:00');
                     if (fechaMov >= dInicio && fechaMov <= dFin) {
                         if (!mov.pagado && (mov.tipo === 'COMPRA' || mov.tipo === 'VENTA')) {
-                            total += parseFloat(mov.monto); // Sumamos la deuda
+                            total += parseFloat(mov.monto);
                         }
                     }
                 });
@@ -431,11 +413,8 @@
                 deudaTemp = total;
                 document.getElementById('lblTotal').innerText = CONFIG.formatearMoneda(total);
                 document.getElementById('resCalc').classList.remove('hidden');
-
-                if (total === 0) CONFIG.notificar("Al día", "No se encontraron deudas pendientes en este rango", "info");
-
+                if (total === 0) CONFIG.notificar("Al día", "No hay deudas en este rango", "info");
             } catch (e) {
-                console.error(e);
                 CONFIG.notificar("Error", "No se pudo calcular la deuda", "error");
             }
         }
@@ -449,18 +428,18 @@
 
             Swal.fire({
                 title: '¿Confirmar Pago?',
-                text: `Vas a saldar ${CONFIG.formatearMoneda(deudaTemp)} para ${n} del ${f1} al ${f2}`,
+                text: `Saldar ${CONFIG.formatearMoneda(deudaTemp)} para ${n}`,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#9333ea',
-                confirmButtonText: 'SÍ, SALDAR CUENTA'
+                confirmButtonText: 'SÍ, SALDAR'
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     try {
                         const params = `nombre=${encodeURIComponent(n)}&f_inicio=${f1}&f_fin=${f2}&monto_real=${deudaTemp}`;
                         const res = await CONFIG.solicitar(`/pagar_rango_fechas?${params}`, { method: 'POST' });
                         if (res.ok) {
-                            CONFIG.notificar("✅ ¡Listo!", "La cuenta ha sido saldada", "success");
+                            CONFIG.notificar("✅ ¡Saldado!", "Cuenta actualizada", "success");
                             setTimeout(() => location.reload(), 1500);
                         }
                     } catch (e) { }
