@@ -19,14 +19,16 @@ if "sqlite" in SQLALCHEMY_DATABASE_URL:
         connect_args={"check_same_thread": False}
     )
 else:
-    # Configuración para PRODUCCIÓN (Supabase + SSL)
-    # Esto obliga a usar una conexión cifrada y segura
+    # Configuración para el Pooler de Supabase (Puerto 6543)
     engine = create_engine(
         SQLALCHEMY_DATABASE_URL,
         connect_args={
-            "sslmode": "require" # <--- ESTO ARREGLA EL ERROR DE CONEXIÓN
-        }
+            "sslmode": "require",
+            "connect_timeout": 10
+        },
+        pool_pre_ping=True
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
