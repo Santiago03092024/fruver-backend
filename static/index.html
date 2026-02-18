@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -58,21 +58,21 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <a href="resumen.html" class="group bg-white border-l-8 border-green-500 p-5 rounded-2xl shadow-md hover:shadow-xl transition-all flex items-center justify-between">
+            <a href="/static/resumen.html" class="group bg-white border-l-8 border-green-500 p-5 rounded-2xl shadow-md hover:shadow-xl transition-all flex items-center justify-between">
                 <div>
                     <h3 class="font-black text-lg text-gray-800 group-hover:text-green-600">🛒 Operar</h3>
                     <p class="text-xs text-gray-400 font-bold uppercase">Compras/Ventas</p>
                 </div>
                 <div class="bg-green-100 p-2 rounded-full text-xl">⚡</div>
             </a>
-            <a href="historial.html" class="group bg-white border-l-8 border-blue-500 p-5 rounded-2xl shadow-md hover:shadow-xl transition-all flex items-center justify-between">
+            <a href="/static/historial.html" class="group bg-white border-l-8 border-blue-500 p-5 rounded-2xl shadow-md hover:shadow-xl transition-all flex items-center justify-between">
                 <div>
                     <h3 class="font-black text-lg text-gray-800 group-hover:text-blue-600">📜 Historial</h3>
                     <p class="text-xs text-gray-400 font-bold uppercase">Auditar Deuda</p>
                 </div>
                 <div class="bg-blue-100 p-2 rounded-full text-xl">🔍</div>
             </a>
-            <a href="cierres.html" class="group bg-white border-l-8 border-purple-500 p-5 rounded-2xl shadow-md hover:shadow-xl transition-all flex items-center justify-between">
+            <a href="/static/cierres.html" class="group bg-white border-l-8 border-purple-500 p-5 rounded-2xl shadow-md hover:shadow-xl transition-all flex items-center justify-between">
                 <div>
                     <h3 class="font-black text-lg text-gray-800 group-hover:text-purple-600">📅 Cierres</h3>
                     <p class="text-xs text-gray-400 font-bold uppercase">Borrar Días</p>
@@ -144,7 +144,7 @@
         </div>
     </div>
 
-    <script src="config.js"></script>
+    <script src="/static/config.js"></script>
     <script>
         const token = localStorage.getItem('fruverToken');
         const username = localStorage.getItem('fruverUser') || 'Usuario';
@@ -154,7 +154,8 @@
         let datosGlobales = { proveedores: [], clientes: [] };
         let pestañaActual = 'cobrar';
 
-        if (!token) window.location.href = "login.html";
+        // CORRECCIÓN: Redirección segura
+        if (!token) window.location.href = "/static/login.html";
 
         document.getElementById('saludoUsuario').innerText = `HOLA, ${username.toUpperCase()}`;
         if (userRol === 'ADMIN') document.getElementById('zonaAdmin').classList.remove('hidden');
@@ -165,7 +166,6 @@
                 const data = await res.json();
                 datosGlobales = data;
 
-                // Usamos los números del backend y formateamos con CONFIG
                 document.getElementById('totalYoDebo').innerText = CONFIG.formatearMoneda(data.total_yo_debo_num || 0);
                 document.getElementById('totalBarattaDebe').innerText = CONFIG.formatearMoneda(data.total_baratta_debe_num || 0);
                 document.getElementById('balanceFinal').innerText = CONFIG.formatearMoneda(data.balance_num || 0);
@@ -240,7 +240,7 @@
                 const esUrgente = p.dias_mora >= 15;
                 const colorTexto = pestañaActual === 'cobrar' ? 'text-emerald-600' : 'text-red-600';
                 return `
-                        <div onclick="window.location.href='resumen.html?nombre=${p.nombre}'"
+                        <div onclick="window.location.href='/static/resumen.html?nombre=${p.nombre}'"
                              class="p-5 flex justify-between items-center hover:bg-stone-50 cursor-pointer transition-all group ${esUrgente ? 'bg-red-50/50 border-l-4 border-red-500' : ''}">
                             <div class="flex items-center gap-4">
                                 <div class="h-10 w-10 rounded-xl flex items-center justify-center text-xl ${esUrgente ? 'bg-red-100 text-red-600' : 'bg-stone-100 text-stone-500'}">
@@ -294,20 +294,14 @@
 
         function cerrarSesion() {
             localStorage.clear();
-            window.location.href = "login.html";
+            window.location.href = "/static/login.html";
         }
 
         cargarTablero();
         setInterval(cargarTablero, 60000);
         function cerrarModalUsuarios() {
-            // Busca el ID de tu modal (usualmente 'modalUsuarios')
             const modal = document.getElementById('modalUsuarios');
-
-            // Le añadimos la clase 'hidden' para esconderlo
             modal.classList.add('hidden');
-
-            // Opcional: Una pequeña notificación de que se cerró (si quieres)
-            console.log("Panel de gestión cerrado correctamente.");
         }
     </script>
 </body>
