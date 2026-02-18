@@ -14,13 +14,13 @@ import string
 from pydantic import BaseModel
 
 # ==========================================
-# 1. CONFIGURACIÓN INICIAL DEL SERVIDOR
+# 1. CONFIGURACION INICIAL DEL SERVIDOR
 # ==========================================
 
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI(title="FruverOS Pro")
 
-# --- CONFIGURACIÓN DE SEGURIDAD ---
+# --- CONFIGURACION DE SEGURIDAD ---
 SECRET_KEY = "cambia_esto_por_una_clave_larga_y_aleatoria_en_produccion"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 300
@@ -300,7 +300,7 @@ def saldos_generales(current_user: models.User = Depends(get_current_user), db: 
     }
 
 # ==========================================
-# 7. ANÁLISIS (INDENTACIÓN CORREGIDA)
+# 7. ANALISIS (INDENTACIÓN CORREGIDA)
 # ==========================================
 
 @app.get("/analisis/ventas-semanales")
@@ -326,7 +326,7 @@ def ventas_semanales(current_user: models.User = Depends(get_current_user), db: 
     return {"labels": labels, "ventas": ventas, "compras": compras}
 
 # ==========================================
-# 8. CIERRES Y PAGOS (LÓGICA SEGURA)
+# 8. CIERRES Y PAGOS (LOGICA SEGURA)
 # ==========================================
 
 @app.get("/analisis/resumen_dias")
@@ -455,4 +455,5 @@ def marcar_movimiento_pagado(mov_id: int, db: Session = Depends(get_db)):
         mov.fecha_pago = datetime.now()
         
     db.commit()
+
     return {"status": "success", "nuevo_estado": mov.pagado}
