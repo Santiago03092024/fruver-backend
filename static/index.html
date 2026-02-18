@@ -9,19 +9,13 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Poppins', sans-serif;
-        }
-
+        body { font-family: 'Poppins', sans-serif; }
         .bg-pattern {
             background-color: #fafaf9;
             background-image: radial-gradient(#e7e5e4 1px, transparent 1px);
             background-size: 20px 20px;
         }
-
-        .transition-all {
-            transition: all 0.3s ease;
-        }
+        .transition-all { transition: all 0.3s ease; }
     </style>
 </head>
 <body class="bg-pattern p-4 md:p-8 text-gray-800 min-h-screen">
@@ -125,9 +119,7 @@
         <div class="bg-white w-full max-w-lg p-8 rounded-[2.5rem] shadow-2xl">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="font-black text-2xl text-gray-800 uppercase tracking-tight">Gestión de Usuarios</h3>
-                <button onclick="cerrarModalUsuarios()" class="text-gray-400 hover:text-red-500 transition-colors">
-                    <span class="text-2xl font-bold">×</span>
-                </button>
+                <button onclick="cerrarModalUsuarios()" class="text-gray-400 hover:text-red-500 transition-colors text-3xl font-bold">&times;</button>
             </div>
             <div class="overflow-hidden rounded-2xl border border-gray-100">
                 <table class="w-full text-left text-xs uppercase font-bold">
@@ -154,15 +146,20 @@
         let datosGlobales = { proveedores: [], clientes: [] };
         let pestañaActual = 'cobrar';
 
-        // CORRECCIÓN: Redirección segura
+        // Redirección de seguridad
         if (!token) window.location.href = "/static/login.html";
 
         document.getElementById('saludoUsuario').innerText = `HOLA, ${username.toUpperCase()}`;
-        if (userRol === 'ADMIN') document.getElementById('zonaAdmin').classList.remove('hidden');
+        
+        // CORRECCIÓN: Detección de ADMIN (insensible a mayúsculas)
+        if (userRol.toUpperCase() === 'ADMIN') {
+            document.getElementById('zonaAdmin').classList.remove('hidden');
+        }
 
         async function cargarTablero() {
             try {
                 const res = await CONFIG.solicitar('/saldos-generales');
+                if (!res.ok) throw new Error();
                 const data = await res.json();
                 datosGlobales = data;
 
@@ -172,89 +169,116 @@
 
                 const balanceNum = data.balance_num || 0;
                 const caja = document.getElementById('cajaBalance');
-                caja.className = `p-8 rounded-[2rem] text-white mb-10 text-center shadow-2xl transition-all duration-700 relative overflow-hidden ${balanceNum > 0 ? 'bg-gradient-to-br from-green-500 to-emerald-700' :
-                        balanceNum < 0 ? 'bg-gradient-to-br from-red-500 to-rose-700' : 'bg-gray-400'
-                    }`;
+                caja.className = `p-8 rounded-[2rem] text-white mb-10 text-center shadow-2xl transition-all duration-700 relative overflow-hidden ${
+                    balanceNum > 0 ? 'bg-gradient-to-br from-green-500 to-emerald-700' :
+                    balanceNum < 0 ? 'bg-gradient-to-br from-red-500 to-rose-700' : 'bg-gray-400'
+                }`;
 
                 renderizarLista();
                 cargarGrafica();
-            } catch (e) { console.error("Error cargando tablero:", e); }
+            } catch (e) { console.error("Error en tablero"); }
         }
 
         async function verUsuarios() {
             document.getElementById('modalUsuarios').classList.remove('hidden');
             const cuerpo = document.getElementById('tablaCuerpoUsuarios');
-            cuerpo.innerHTML = '<tr><td colspan="3" class="p-8 text-center text-gray-400">Consultando...</td></tr>';
+            cuerpo.innerHTML = '<tr><td colspan="3" class="p-8 text-center text-gray-400 animate-pulse">Consultando...</td></tr>';
+            
             try {
-                const res = await CONFIG.solicitar(`/admin/usuarios?admin_id=${userId}`);
+                const res = await CONFIG.solicitar('/admin/usuarios');
                 const lista = await res.json();
+                
+                // CORRECCIÓN: Renderizar basado en el nuevo formato de objetos
                 cuerpo.innerHTML = lista.map(u => `
-                        <tr class="hover:bg-blue-50/50 transition-colors">
-                            <td class="p-4 font-black text-blue-600 text-lg">#${u[0]}</td>
-                            <td class="p-4 text-gray-800">${u[1]}</td>
-                            <td class="p-4"><span class="px-2 py-1 rounded-md ${u[2] === 'ADMIN' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}">${u[2]}</span></td>
-                        </tr>`).join('');
-            } catch (e) { cuerpo.innerHTML = '<tr><td colspan="3" class="p-4 text-red-500 text-center">Denegado.</td></tr>'; }
+                    <tr class="hover:bg-blue-50/50 transition-colors">
+                        <td class="p-4 font-black text-blue-600 text-lg">#${u.id}</td>
+                        <td class="p-4 text-gray-800">${u.username.toUpperCase()}</td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded-md text-[10px] ${u.rol.toUpperCase() === 'ADMIN' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}">
+                                ${u.rol.toUpperCase()}
+                            </span>
+                        </td>
+                    </tr>`).join('');
+            } catch (e) { 
+                cuerpo.innerHTML = '<tr><td colspan="3" class="p-4 text-red-500 text-center">Error al cargar usuarios.</td></tr>'; 
+            }
         }
 
         async function generarToken() {
             const btn = document.getElementById('txtToken');
-            btn.innerText = "⏳...";
+            const originalText = btn.innerText;
+            btn.innerText = "⏳ ESPERE...";
             try {
-                const res = await CONFIG.solicitar(`/admin/generar-codigo?admin_id=${userId}`);
+                const res = await CONFIG.solicitar('/admin/generar-codigo');
                 const data = await res.json();
-                btn.innerText = `CÓDIGO: ${data.codigo}`;
+                btn.innerText = `TOKEN: ${data.codigo}`;
                 btn.parentElement.classList.add('bg-yellow-400', 'text-black');
                 setTimeout(() => {
                     btn.innerText = "Generar Token";
                     btn.parentElement.classList.remove('bg-yellow-400', 'text-black');
-                }, 10000);
-            } catch (e) { btn.innerText = "Error"; }
+                }, 15000);
+            } catch (e) { btn.innerText = "ERROR"; }
         }
 
         async function cambiarClaveDinamica() {
-            const nueva = prompt("NUEVA CONTRASEÑA:");
-            if (!nueva) return;
-            const tokenAdmin = prompt("CÓDIGO ADMIN:");
-            if (!tokenAdmin) return;
-            try {
-                const res = await CONFIG.solicitar(`/cambiar-password-dinamico?user_id=${userId}&nueva_pass=${encodeURIComponent(nueva)}&token_admin=${encodeURIComponent(tokenAdmin)}`, { method: 'POST' });
-                if (res.ok) { alert("✅ CLAVE ACTUALIZADA"); cerrarSesion(); }
-                else alert("❌ Código inválido");
-            } catch (e) { alert("Error de conexión"); }
+            const { value: formValues } = await Swal.fire({
+                title: 'Cambiar Contraseña',
+                html:
+                    '<input id="swal-newpass" class="swal2-input" placeholder="Nueva Clave" type="password">' +
+                    '<input id="swal-token" class="swal2-input" placeholder="Token Admin">',
+                focusConfirm: false,
+                preConfirm: () => {
+                    return [
+                        document.getElementById('swal-newpass').value,
+                        document.getElementById('swal-token').value
+                    ]
+                }
+            });
+
+            if (formValues && formValues[0] && formValues[1]) {
+                try {
+                    const res = await CONFIG.solicitar(`/cambiar-password-dinamico?user_id=${userId}&nueva_pass=${encodeURIComponent(formValues[0])}&token_admin=${encodeURIComponent(formValues[1])}`, { method: 'POST' });
+                    if (res.ok) { 
+                        Swal.fire("Éxito", "Clave cambiada. Inicia sesión de nuevo.", "success").then(() => cerrarSesion()); 
+                    } else { 
+                        Swal.fire("Error", "Token inválido o expirado", "error"); 
+                    }
+                } catch (e) { Swal.fire("Error", "No hay conexión", "error"); }
+            }
         }
 
         function renderizarLista() {
             const lista = document.getElementById('listaSaldos');
             const personas = pestañaActual === 'cobrar' ? datosGlobales.clientes : datosGlobales.proveedores;
             const filtro = document.getElementById('buscadorProv').value.toUpperCase();
-            let filtrados = personas.filter(p => p.nombre.includes(filtro));
+            
+            let filtrados = personas.filter(p => p.nombre.toUpperCase().includes(filtro));
             filtrados.sort((a, b) => (b.dias_mora || 0) - (a.dias_mora || 0));
 
             if (filtrados.length === 0) {
-                lista.innerHTML = `<div class="p-10 text-center text-gray-300 font-bold uppercase text-xs">Sin registros</div>`;
+                lista.innerHTML = `<div class="p-10 text-center text-gray-300 font-bold uppercase text-xs">Sin registros encontrados</div>`;
                 return;
             }
 
             lista.innerHTML = filtrados.map(p => {
-                const esUrgente = p.dias_mora >= 15;
+                const esUrgente = p.dias_mora >= 10;
                 const colorTexto = pestañaActual === 'cobrar' ? 'text-emerald-600' : 'text-red-600';
                 return `
-                        <div onclick="window.location.href='/static/resumen.html?nombre=${p.nombre}'"
-                             class="p-5 flex justify-between items-center hover:bg-stone-50 cursor-pointer transition-all group ${esUrgente ? 'bg-red-50/50 border-l-4 border-red-500' : ''}">
-                            <div class="flex items-center gap-4">
-                                <div class="h-10 w-10 rounded-xl flex items-center justify-center text-xl ${esUrgente ? 'bg-red-100 text-red-600' : 'bg-stone-100 text-stone-500'}">
-                                    ${pestañaActual === 'cobrar' ? '👤' : '📦'}
-                                </div>
-                                <div>
-                                    <p class="font-black text-gray-800 text-lg uppercase group-hover:text-green-700">${p.nombre} ${esUrgente ? '⚠️' : ''}</p>
-                                    <p class="text-[10px] text-gray-400 font-black uppercase">Antigüedad: ${p.dias_mora} días</p>
-                                </div>
+                    <div onclick="window.location.href='/static/resumen.html?nombre=${p.nombre}'"
+                         class="p-5 flex justify-between items-center hover:bg-stone-50 cursor-pointer transition-all group ${esUrgente ? 'bg-red-50/30' : ''}">
+                        <div class="flex items-center gap-4">
+                            <div class="h-10 w-10 rounded-xl flex items-center justify-center text-xl ${esUrgente ? 'bg-red-100 text-red-600' : 'bg-stone-100 text-stone-500'}">
+                                ${pestañaActual === 'cobrar' ? '👤' : '📦'}
                             </div>
-                            <div class="text-right">
-                                <p class="text-xl font-black ${colorTexto}">${p.saldo}</p>
+                            <div>
+                                <p class="font-black text-gray-800 text-lg uppercase group-hover:text-green-700">${p.nombre} ${esUrgente ? '⚠️' : ''}</p>
+                                <p class="text-[10px] text-gray-400 font-black uppercase">Mora: ${p.dias_mora} días</p>
                             </div>
-                        </div>`;
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xl font-black ${colorTexto}">${p.saldo}</p>
+                        </div>
+                    </div>`;
             }).join('');
         }
 
@@ -276,17 +300,25 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        scales: { y: { ticks: { callback: (v) => CONFIG.formatearMoneda(v) } } }
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true, ticks: { callback: (v) => '$' + v.toLocaleString() } } }
                     }
                 });
-            } catch (e) { console.error(e); }
+            } catch (e) { }
         }
 
         function cambiarPestaña(tipo) {
             pestañaActual = tipo;
-            const btnC = document.getElementById('btnCobrar'); const btnP = document.getElementById('btnPagar');
-            btnC.className = tipo === 'cobrar' ? "flex-1 py-3 rounded-xl font-black text-xs bg-white text-green-700 shadow-sm uppercase" : "flex-1 py-3 rounded-xl font-black text-xs text-gray-500 uppercase";
-            btnP.className = tipo === 'pagar' ? "flex-1 py-3 rounded-xl font-black text-xs bg-white text-red-600 shadow-sm uppercase" : "flex-1 py-3 rounded-xl font-black text-xs text-gray-500 uppercase";
+            const btnC = document.getElementById('btnCobrar'); 
+            const btnP = document.getElementById('btnPagar');
+            
+            if(tipo === 'cobrar') {
+                btnC.className = "flex-1 py-3 rounded-xl font-black text-xs bg-white text-green-700 shadow-sm uppercase tracking-widest";
+                btnP.className = "flex-1 py-3 rounded-xl font-black text-xs text-gray-500 uppercase tracking-widest hover:text-gray-700";
+            } else {
+                btnP.className = "flex-1 py-3 rounded-xl font-black text-xs bg-white text-red-600 shadow-sm uppercase tracking-widest";
+                btnC.className = "flex-1 py-3 rounded-xl font-black text-xs text-gray-500 uppercase tracking-widest hover:text-gray-700";
+            }
             renderizarLista();
         }
 
@@ -297,12 +329,13 @@
             window.location.href = "/static/login.html";
         }
 
+        function cerrarModalUsuarios() {
+            document.getElementById('modalUsuarios').classList.add('hidden');
+        }
+
+        // Inicio automático
         cargarTablero();
         setInterval(cargarTablero, 60000);
-        function cerrarModalUsuarios() {
-            const modal = document.getElementById('modalUsuarios');
-            modal.classList.add('hidden');
-        }
     </script>
 </body>
 </html>
