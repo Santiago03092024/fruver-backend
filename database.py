@@ -1,34 +1,29 @@
-# -*- coding: utf-8 -*-
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# 1. Obtenemos la URL de la base de datos (Nube o Local)
+# 1. URL de la base de datos (Usa local si no detecta la de Render)
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./fruver.db")
 
-# 2. Parche necesario para Render (cambia postgres:// por postgresql://)
-if SQLALCHEMY_DATABASE_URL and SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
+# 2. Corrección para Render/Postgres
+if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# 3. Configuración del Motor (Engine)
+# 3. Configuración del Motor
 if "sqlite" in SQLALCHEMY_DATABASE_URL:
-    # Configuración para desarrollo local
     engine = create_engine(
         SQLALCHEMY_DATABASE_URL, 
         connect_args={"check_same_thread": False}
     )
 else:
-    # Configuración para el Session Pooler de Supabase (Puerto 6543 + IPv4)
-    #
+    # Mantenemos solo lo esencial para que Supabase no te de error de conexión
     engine = create_engine(
         SQLALCHEMY_DATABASE_URL,
-        connect_args={
-            "sslmode": "require",
-            "connect_timeout": 10
-        },
-        pool_pre_ping=True  # Evita errores de "conexión perdida" al usar el Pooler
+        connect_args={"sslmode": "require"},
+        pool_pre_ping=True
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
