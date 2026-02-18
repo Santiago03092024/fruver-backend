@@ -120,7 +120,7 @@
             const p = document.getElementById('logPass').value.trim();
 
             if (!u || !p) {
-                return CONFIG.notificar("Campos Vacíos", "Ingresa usuario y contraseña", "warning");
+                return Swal.fire("Campos Vacíos", "Ingresa usuario y contraseña", "warning");
             }
 
             Swal.fire({
@@ -157,21 +157,21 @@
                         showConfirmButton: false,
                         borderRadius: '2rem'
                     }).then(() => {
-                        // CORRECCIÓN: Ir a la raíz configurada en FastAPI
-                        window.location.href = '/';
+                        // LA CORRECCIÓN CLAVE: Ir directamente al panel de control
+                        window.location.href = '/static/index.html';
                     });
                 } else {
-                    CONFIG.notificar("Acceso Denegado", "Usuario o contraseña incorrectos", "error");
+                    Swal.fire("Acceso Denegado", "Usuario o contraseña incorrectos", "error");
                 }
             } catch (e) {
-                CONFIG.notificar("Error de Red", "No se pudo conectar con el servidor", "error");
+                Swal.fire("Error de Red", "No se pudo conectar con el servidor", "error");
             }
         }
 
         async function registro() {
             const u = document.getElementById('regUser').value.trim();
             const p = document.getElementById('regPass').value.trim();
-            if (!u || !p) return CONFIG.notificar("Datos Incompletos", "Llena ambos campos", "warning");
+            if (!u || !p) return Swal.fire("Datos Incompletos", "Llena ambos campos", "warning");
 
             try {
                 const res = await fetch(`${CONFIG.API_URL}/register`, {
@@ -181,13 +181,13 @@
                 });
 
                 if (res.ok) {
-                    CONFIG.notificar("¡Excelente!", "Cuenta creada con éxito.", "success");
+                    Swal.fire("¡Excelente!", "Cuenta creada con éxito.", "success");
                     mostrarSeccion('login');
                 } else {
                     const d = await res.json();
-                    CONFIG.notificar("Error", d.detail || "El usuario ya existe", "error");
+                    Swal.fire("Error", d.detail || "El usuario ya existe", "error");
                 }
-            } catch (e) { CONFIG.notificar("Error de Conexión", "No se pudo realizar el registro", "error"); }
+            } catch (e) { Swal.fire("Error de Conexión", "No se pudo realizar el registro", "error"); }
         }
 
         async function recuperarClave() {
@@ -195,19 +195,19 @@
             const pass = document.getElementById('recNewPass').value;
             const token = document.getElementById('recToken').value.trim();
 
-            if (!id || !pass || !token) return CONFIG.notificar("Atención", "Campos obligatorios", "warning");
+            if (!id || !pass || !token) return Swal.fire("Atención", "Campos obligatorios", "warning");
 
             try {
                 const url = `${CONFIG.API_URL}/cambiar-password-dinamico?user_id=${id}&nueva_pass=${encodeURIComponent(pass)}&token_admin=${encodeURIComponent(token)}`;
                 const res = await fetch(url, { method: 'POST' });
 
                 if (res.ok) {
-                    CONFIG.notificar("Cambio Exitoso", "Contraseña actualizada", "success");
+                    Swal.fire("Cambio Exitoso", "Contraseña actualizada", "success");
                     mostrarSeccion('login');
                 } else {
-                    CONFIG.notificar("Error de Token", "Código o ID no válidos", "error");
+                    Swal.fire("Error de Token", "Código o ID no válidos", "error");
                 }
-            } catch (e) { CONFIG.notificar("Error", "Error de servidor", "error"); }
+            } catch (e) { Swal.fire("Error", "Error de servidor", "error"); }
         }
     </script>
 </body>
