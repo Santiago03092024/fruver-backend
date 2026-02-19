@@ -1,9 +1,8 @@
-// config.js - Comando Central de FruverOS Pro (Versión 4.0)
+// config.js - Comando Central de FruverOS Pro
 const CONFIG = {
-    // CORRECCIÓN: Tu servidor real en Render
+    // URL de tu backend en Render
     API_URL: "https://fruver-api-gbwr.onrender.com",
 
-    // 1. Formateador de Moneda
     formatearMoneda: (valor) => {
         return new Intl.NumberFormat('es-CO', {
             style: 'currency',
@@ -12,7 +11,6 @@ const CONFIG = {
         }).format(valor);
     },
 
-    // 2. Motor de Notificaciones
     notificar: (titulo, texto, icono = 'success') => {
         Swal.fire({
             title: titulo,
@@ -30,10 +28,8 @@ const CONFIG = {
         });
     },
 
-    // 3. Peticiones Pro (Fetch con Seguridad)
     async solicitar(endpoint, opciones = {}) {
         const token = localStorage.getItem('fruverToken');
-
         const headersBase = {
             'Authorization': `Bearer ${token}`
         };
@@ -44,19 +40,18 @@ const CONFIG = {
                 headers: { ...headersBase, ...opciones.headers }
             });
 
-            // Si la sesión expiró (401)
             if (respuesta.status === 401) {
                 localStorage.clear();
-                // CORRECCIÓN: Ruta completa para evitar el Not Found
-                window.location.href = "/static/login.html";
+                window.location.href = "/static/login.html"; 
                 return;
             }
 
             return respuesta;
         } catch (error) {
             console.error("Error en la petición:", error);
-            this.notificar("Error de Conexión", "No se pudo contactar con el servidor", "error");
+            this.notificar("Error de Conexión", "No se pudo conectar con el servidor", "error");
             throw error;
         }
     }
 };
+
