@@ -1,75 +1,46 @@
-# -*- coding: utf-8 -*-
-import os
-import random
-import string
-from datetime import datetime, timedelta
-from typing import Optional, List
-
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, RedirectResponse
-from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
-
+from fastapi.responses import RedirectResponse 
+import os 
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, desc, or_
 from database import SessionLocal, engine
 import models
-from pydantic import BaseModel
+from datetime import datetime, timedelta
+from typing import Optional, List
 from passlib.context import CryptContext
 from jose import JWTError, jwt
+import random
+import string
+from pydantic import BaseModel
 
 # ==========================================
-# 1. CONFIGURACIÓN E INICIO DEL SERVIDOR
+# 1. CONFIGURACIÓN INICIAL DEL SERVIDOR
 # ==========================================
 
-# Crea las tablas en Supabase automáticamente
 models.Base.metadata.create_all(bind=engine)
-
 app = FastAPI(title="FruverOS Pro")
 
-# --- SEGURIDAD Y JWT ---
-SECRET_KEY = "fruver_2026_secreto_para_produccion" 
+# ==========================================
+# NUEVO: CONFIGURACIÓN DEL FRONTEND (CARPETA STATIC)
+# ==========================================
+
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/")
+def raiz():
+    return RedirectResponse(url="/static/login.html")
+
+# --- CONFIGURACIÓN DE SEGURIDAD ---
+SECRET_KEY = "cambia_esto_por_una_clave_larga_y_aleatoria_en_produccion"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 300
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-# --- MIDDLEWARE (CORS) ---
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Diccionario temporal para códigos admin
-TOKENS_ADMIN = {}
-
-# --- DEPENDENCIAS ---
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-# ==========================================
-# 2. RUTAS DE NAVEGACIÓN
-# ==========================================
-
-@app.get("/")
-async def root():
-    return RedirectResponse(url="/static/login.html")
-
-# Servir archivos estáticos
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# ==========================================
-# 3. MODELOS DE DATOS
-# ==========================================
 
 class UserCreate(BaseModel):
     username: str
@@ -80,11 +51,24 @@ class Token(BaseModel):
     token_type: str
     user_id: int
     username: str
-    rol: str
+    rol: str = "VENDEDOR"
 
-# ==========================================
-# 4. FUNCIONES DE SEGURIDAD
-# ==========================================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+TOKENS_ADMIN = {}
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
@@ -96,12 +80,13 @@ def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Sesión expirada o inválida",
+        detail="Credenciales inválidas",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
@@ -118,7 +103,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     return user
 
 # ==========================================
-# 5. AUTENTICACIÓN (LOGIN Y REGISTRO)
+# 2. LOGIN Y REGISTRO
 # ==========================================
 
 @app.post("/register")
@@ -127,7 +112,6 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     if existe: 
         raise HTTPException(status_code=400, detail="El usuario ya existe")
     
-    # Normalizamos a MAYÚSCULAS para evitar errores de comparación
     rol = "ADMIN" if user.username.lower() == "admin" else "VENDEDOR"
     hashed_pass = get_password_hash(user.password)
     
@@ -148,27 +132,23 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
         "token_type": "bearer",
         "user_id": user.id,
         "username": user.username,
-        "rol": user.rol.upper()  # Siempre devolvemos en mayúsculas
+        "rol": user.rol
     }
 
 # ==========================================
-# 6. SEGURIDAD ADMIN (CORREGIDO)
+# 3. SEGURIDAD ADMIN
 # ==========================================
 
 @app.get("/admin/generar-codigo")
 def generar_codigo_admin(current_user: models.User = Depends(get_current_user)):
-    if current_user.rol.upper() != 'ADMIN':
-        raise HTTPException(status_code=403, detail="No tienes permisos de administrador")
-    
+    if current_user.rol != 'ADMIN': raise HTTPException(status_code=403, detail="Requiere Admin")
     codigo = ''.join(random.choices(string.digits, k=4))
     TOKENS_ADMIN[codigo] = datetime.now()
     return {"codigo": codigo}
 
 @app.post("/cambiar-password-dinamico")
 def cambiar_pass_dinamico(user_id: int, nueva_pass: str, token_admin: str, db: Session = Depends(get_db)):
-    if token_admin not in TOKENS_ADMIN:
-        raise HTTPException(status_code=400, detail="Código de administrador inválido o expirado")
-    
+    if token_admin not in TOKENS_ADMIN: raise HTTPException(status_code=400, detail="Código inválido")
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if user: 
         user.password = get_password_hash(nueva_pass.strip())
@@ -178,24 +158,23 @@ def cambiar_pass_dinamico(user_id: int, nueva_pass: str, token_admin: str, db: S
 
 @app.get("/admin/usuarios")
 def listar_usuarios_admin(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.rol.upper() != 'ADMIN':
-        return []
+    if current_user.rol != 'ADMIN': return []
     usuarios = db.query(models.User).all()
-    # Cambiado a formato objeto para mejor lectura del JS
-    return [{"id": u.id, "username": u.username, "rol": u.rol} for u in usuarios]
+    return [[u.id, u.username, u.rol] for u in usuarios]
 
 # ==========================================
-# 7. OPERACIONES (COMPRA, VENTA, PAGO)
+# 4. OPERACIONES PRINCIPALES
 # ==========================================
 
 @app.post("/comprar")
 def registrar_compra(proveedor: str, producto: str, cantidad: float, precio_unitario: float, unidad: str, fecha_manual: str = None, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    prov = db.query(models.Proveedor).filter(models.Proveedor.nombre == proveedor.upper(), models.Proveedor.owner_id == current_user.id).first()
+    prov = db.query(models.Proveedor).filter(models.Proveedor.nombre.ilike(proveedor), models.Proveedor.owner_id == current_user.id).first()
     if not prov:
         prov = models.Proveedor(nombre=proveedor.upper(), owner_id=current_user.id)
         db.add(prov); db.commit(); db.refresh(prov)
     
     f_obj = datetime.strptime(fecha_manual, "%Y-%m-%d") if fecha_manual and fecha_manual.strip() else datetime.now()
+    
     nuevo = models.Movimiento(
         tipo='COMPRA', 
         producto=f"{producto} ({unidad})", 
@@ -210,7 +189,7 @@ def registrar_compra(proveedor: str, producto: str, cantidad: float, precio_unit
 
 @app.post("/despachar_total")
 def registrar_despacho_total(cliente: str, monto_total: float, fecha_manual: str = None, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    prov = db.query(models.Proveedor).filter(models.Proveedor.nombre == cliente.upper(), models.Proveedor.owner_id == current_user.id).first()
+    prov = db.query(models.Proveedor).filter(models.Proveedor.nombre.ilike(cliente), models.Proveedor.owner_id == current_user.id).first()
     if not prov:
         prov = models.Proveedor(nombre=cliente.upper(), owner_id=current_user.id)
         db.add(prov); db.commit(); db.refresh(prov)
@@ -221,8 +200,8 @@ def registrar_despacho_total(cliente: str, monto_total: float, fecha_manual: str
     return {"status": "success"}
 
 @app.post("/pagar")
-def registrar_pago(proveedor: str, monto: float, detalle_pago: str = "ABONO", fecha_manual: str = None, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    prov = db.query(models.Proveedor).filter(models.Proveedor.nombre == proveedor.upper(), models.Proveedor.owner_id == current_user.id).first()
+def registrar_pago(proveedor: str, monto: float, detalle_pago: str = "ABONO / PAGO", fecha_manual: str = None, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    prov = db.query(models.Proveedor).filter(models.Proveedor.nombre.ilike(proveedor), models.Proveedor.owner_id == current_user.id).first()
     if not prov:
         prov = models.Proveedor(nombre=proveedor.upper(), owner_id=current_user.id)
         db.add(prov); db.commit(); db.refresh(prov)
@@ -233,37 +212,58 @@ def registrar_pago(proveedor: str, monto: float, detalle_pago: str = "ABONO", fe
     return {"status": "success"}
 
 # ==========================================
-# 8. CONSULTAS E HISTORIAL
+# 5. HISTORIAL  PARA MULTI-USUARIO)
 # ==========================================
 
 @app.get("/historial")
-def obtener_historial(skip: int = 0, limit: int = 50, nombre: Optional[str] = None, fecha: Optional[str] = None, tipo: Optional[str] = None, db: Session = Depends(get_db)):
-    query = db.query(models.Movimiento).join(models.Proveedor)
+def obtener_historial(
+    skip: int = 0, 
+    limit: int = 10, 
+    nombre: Optional[str] = None, 
+    fecha: Optional[str] = None, 
+    tipo: Optional[str] = None,
+    current_user: models.User = Depends(get_current_user), # <-- ¡SEGURIDAD AÑADIDA!
+    db: Session = Depends(get_db)
+):
+    # 1. Unimos Movimientos con Proveedor Y filtramos por el dueño (owner_id)
+    query = db.query(models.Movimiento).join(models.Proveedor).filter(
+        models.Proveedor.owner_id == current_user.id # <-- ¡EL FILTRO VITAL!
+    )
 
+    # 2. Aplicamos filtros solo si el usuario envió datos
     if nombre:
         query = query.filter(models.Proveedor.nombre.ilike(f"%{nombre}%"))
+    
     if fecha:
         query = query.filter(func.date(models.Movimiento.fecha) == fecha)
+
     if tipo and tipo != "TODO":
         query = query.filter(models.Movimiento.tipo == tipo)
 
+    # 3. Contamos el total ANTES de cortar la lista
     total_registros = query.count()
+
+    # 4. Obtenemos los datos ordenados por fecha
     movimientos = query.order_by(desc(models.Movimiento.fecha)).offset(skip).limit(limit).all()
 
-    return {"total": total_registros, "data": [{
-        "id": m.id,
-        "fecha": m.fecha.strftime("%Y-%m-%d %H:%M"),
-        "tipo": m.tipo,
-        "producto": m.producto or "N/A",
-        "proveedor": m.proveedor.nombre,
-        "monto": float(m.monto),
-        "pagado": m.pagado,
-        "cantidad": float(m.cantidad or 0),
-        "precio_unitario": float(m.precio_unitario or 0)
-    } for m in movimientos]}
+    # 5. Serializamos los datos
+    data_response = []
+    for m in movimientos:
+        data_response.append({
+            "id": m.id,
+            "fecha": m.fecha.strftime("%Y-%m-%d %H:%M"),
+            "tipo": m.tipo,
+            "producto": m.producto or "N/A",
+            "proveedor": m.proveedor.nombre,
+            "monto": float(m.monto),
+            "pagado": m.pagado,
+            "cantidad": float(m.cantidad) if m.cantidad else 0,
+            "precio_unitario": float(m.precio_unitario) if m.precio_unitario else 0
+        })
 
+    return {"total": total_registros, "data": data_response}
 # ==========================================
-# 9. DASHBOARD Y ANÁLISIS
+# 6. DASHBOARD
 # ==========================================
 
 @app.get("/saldos-generales")
@@ -279,10 +279,22 @@ def saldos_generales(current_user: models.User = Depends(get_current_user), db: 
         
         saldo = (v if v > 0 else c) - pa
 
-        mov_v = db.query(models.Movimiento).filter(models.Movimiento.proveedor_id == p.id, models.Movimiento.pagado == False, models.Movimiento.tipo != 'PAGO').order_by(models.Movimiento.fecha.asc()).first()
-        mora = (hoy - mov_v.fecha).days if mov_v and mov_v.fecha else 0
-        
-        info = {"nombre": p.nombre, "saldo": f"$ {abs(saldo):,.0f}", "saldo_num": abs(saldo), "dias_mora": mora}
+        dias_mora = 0
+        mov_viejo = db.query(models.Movimiento).filter(
+            models.Movimiento.proveedor_id == p.id,
+            models.Movimiento.pagado == False,
+            models.Movimiento.tipo != 'PAGO'
+        ).order_by(models.Movimiento.fecha.asc()).first()
+
+        if mov_viejo and mov_viejo.fecha:
+            dias_mora = (hoy - mov_viejo.fecha).days
+
+        info = {
+            "nombre": p.nombre, 
+            "saldo": f"$ {abs(saldo):,.0f}", 
+            "saldo_num": abs(saldo), 
+            "dias_mora": dias_mora
+        }
 
         if v > 0:
             t_baratta += saldo
@@ -294,45 +306,75 @@ def saldos_generales(current_user: models.User = Depends(get_current_user), db: 
     return {
         "proveedores": res_deudas, 
         "clientes": res_cobros, 
-        "total_yo_debo_num": t_yo, 
+        "total_yo_debo_num": t_yo,            
         "total_baratta_debe_num": t_baratta, 
-        "balance_num": t_baratta - t_yo
+        "balance_num": t_baratta - t_yo      
     }
+
+# ==========================================
+# 7. ANÁLISIS (INDENTACIÓN CORREGIDA)
+# ==========================================
 
 @app.get("/analisis/ventas-semanales")
 def ventas_semanales(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    hoy = datetime.now(); labels = []; ventas = []; compras = []
-    for i in range(-5, 1):
-        dia = hoy + timedelta(days=i); dia_f = dia.date()
-        label = f"{dia.day}/{dia.month}"
+    mis_proveedores = db.query(models.Proveedor.id).filter(models.Proveedor.owner_id == current_user.id).subquery()
+    hoy = datetime.now()
+    labels = []; ventas = []; compras = []
+
+    for i in range(-5, 6): 
+        dia = hoy + timedelta(days=i)
+        dia_f = dia.date()
+        ms = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+        ds = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"]
+        label = f"{dia.day} {ms[dia.month-1]} ({ds[dia.weekday()]})"
         
-        v = float(db.query(func.sum(models.Movimiento.monto)).join(models.Proveedor).filter(models.Proveedor.owner_id == current_user.id, models.Movimiento.tipo == 'VENTA', func.date(models.Movimiento.fecha) == dia_f).scalar() or 0)
-        c = float(db.query(func.sum(models.Movimiento.monto)).join(models.Proveedor).filter(models.Proveedor.owner_id == current_user.id, models.Movimiento.tipo == 'COMPRA', func.date(models.Movimiento.fecha) == dia_f).scalar() or 0)
+        v = float(db.query(func.sum(models.Movimiento.monto)).filter(models.Movimiento.proveedor_id.in_(mis_proveedores), models.Movimiento.tipo == 'VENTA', func.date(models.Movimiento.fecha) == dia_f).scalar() or 0)
+        c = float(db.query(func.sum(models.Movimiento.monto)).filter(models.Movimiento.proveedor_id.in_(mis_proveedores), models.Movimiento.tipo == 'COMPRA', func.date(models.Movimiento.fecha) == dia_f).scalar() or 0)
         
-        labels.append(label); ventas.append(v); compras.append(c)
+        labels.append(label)
+        ventas.append(v)
+        compras.append(c)
+
     return {"labels": labels, "ventas": ventas, "compras": compras}
+
+# ==========================================
+# 8. CIERRES Y PAGOS (LÓGICA SEGURA)
+# ==========================================
 
 @app.get("/analisis/resumen_dias")
 def resumen_dias(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Traemos todos los movimientos
     query = db.query(models.Movimiento).join(models.Proveedor).filter(models.Proveedor.owner_id == current_user.id).all()
     agrupado = {}
+    
     for m in query:
-        f = m.fecha.strftime("%Y-%m-%d")
+        f = m.fecha.strftime("%Y-%m-%d") if m.fecha else "---"
+        
+        # Si el día no existe en el diccionario, lo inicializamos con contadores en 0
         if f not in agrupado:
-            agrupado[f] = {"fecha": f, "items": 0, "total_movido": 0, "pendiente_pagar": 0, "pendiente_cobrar": 0}
+            agrupado[f] = {
+                "fecha": f, 
+                "items": 0, 
+                "total_movido": 0,
+                "pendiente_pagar": 0,   # Deuda (Compras sin pagar)
+                "pendiente_cobrar": 0   # Cobro (Ventas sin cobrar)
+            }
         
-        agrupado[f]["items"] += 1
-        agrupado[f]["total_movido"] += float(m.monto)
-        
-        if not m.pagado:
-            if m.tipo == 'COMPRA': agrupado[f]["pendiente_pagar"] += float(m.monto)
-            elif m.tipo == 'VENTA': agrupado[f]["pendiente_cobrar"] += float(m.monto)
-            
-    return sorted(list(agrupado.values()), key=lambda x: x['fecha'], reverse=True)
+        item = agrupado[f]
+        item["items"] += 1
+        item["total_movido"] += float(m.monto)
 
-# ==========================================
-# 10. CIERRES Y ACCIONES DE DEPURE
-# ==========================================
+        # --- LÓGICA DE BLOQUEO ---
+        # Si el movimiento NO está pagado, sumamos a la deuda pendiente de ese día
+        if not m.pagado:
+            if m.tipo == 'COMPRA':
+                item["pendiente_pagar"] += float(m.monto)
+            elif m.tipo == 'VENTA':
+                item["pendiente_cobrar"] += float(m.monto)
+
+    resultado = list(agrupado.values())
+    resultado.sort(key=lambda x: x['fecha'], reverse=True)
+    return resultado
 
 @app.delete("/borrar_dia_completo")
 def borrar_dia_completo(fecha: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -343,46 +385,97 @@ def borrar_dia_completo(fecha: str, current_user: models.User = Depends(get_curr
     return {"status": "success"}
 
 @app.post("/pagar_rango_fechas")
-def pagar_rango_fechas(nombre: str, f_inicio: str, f_fin: str, monto_real: float, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    prov = db.query(models.Proveedor).filter(models.Proveedor.nombre.ilike(nombre.strip()), models.Proveedor.owner_id == current_user.id).first()
+def pagar_rango_fechas(
+    nombre: str, 
+    f_inicio: str, 
+    f_fin: str, 
+    monto_real: float, 
+    current_user: models.User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    # 1. Buscar al proveedor
+    prov = db.query(models.Proveedor).filter(
+        models.Proveedor.nombre.ilike(nombre.strip()), 
+        models.Proveedor.owner_id == current_user.id
+    ).first()
+    
     if not prov:
-        raise HTTPException(status_code=404, detail="Persona no encontrada")
+        raise HTTPException(status_code=404, detail="Proveedor no encontrado")
 
-    nuevo_pago = models.Movimiento(tipo='PAGO', producto=f"SALDO {f_inicio} AL {f_fin}", monto=monto_real, fecha=datetime.now(), proveedor_id=prov.id, pagado=True)
+    # 2. Registrar el PAGO en el sistema
+    nuevo_pago = models.Movimiento(
+        tipo='PAGO', 
+        producto=f"ABONO FACTURAS {f_inicio} AL {f_fin}", 
+        monto=monto_real, 
+        fecha=datetime.now(), 
+        proveedor_id=prov.id, 
+        pagado=True
+    )
     db.add(nuevo_pago)
     
+    # 3. Buscar deudas pendientes
     deudas = db.query(models.Movimiento).filter(
         models.Movimiento.proveedor_id == prov.id, 
+        models.Movimiento.tipo.in_(['COMPRA', 'VENTA']), 
         models.Movimiento.pagado == False, 
         func.date(models.Movimiento.fecha) >= f_inicio, 
         func.date(models.Movimiento.fecha) <= f_fin
-    ).all()
-    
-    for d in deudas: 
-        d.pagado = True
-        d.fecha_pago = datetime.now()
-        
+    ).order_by(models.Movimiento.fecha.asc()).all() 
+
+    # 4. ALGORITMO DE CONCILIACIÓN (Seguro)
+    dinero_disponible = monto_real
+
+    for deuda in deudas:
+        if dinero_disponible <= 0:
+            break 
+            
+        monto_deuda = float(deuda.monto)
+
+        if dinero_disponible >= monto_deuda:
+            deuda.pagado = True
+            deuda.fecha_pago = datetime.now()
+            dinero_disponible -= monto_deuda
+        else:
+            dinero_disponible = 0 
+
     db.commit()
-    return {"status": "success"}
+    return {"status": "success", "mensaje": "Pago distribuido correctamente"}
 
 @app.get("/proveedores")
-def listar_proveedores_cortos(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def listar_proveedores(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     return db.query(models.Proveedor).filter(models.Proveedor.owner_id == current_user.id).all()
 
 @app.delete("/movimiento/{mov_id}")
-def eliminar_movimiento_unico(mov_id: int, db: Session = Depends(get_db)):
-    mov = db.query(models.Movimiento).filter(models.Movimiento.id == mov_id).first()
+def eliminar_movimiento(mov_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Buscamos el movimiento asegurándonos que el proveedor asociado sea del usuario actual
+    mov = db.query(models.Movimiento).join(models.Proveedor).filter(
+        models.Movimiento.id == mov_id,
+        models.Proveedor.owner_id == current_user.id
+    ).first()
+    
     if mov: 
         db.delete(mov)
         db.commit()
-    return {"status": "success"}
+        return {"status": "success"}
+    raise HTTPException(status_code=404, detail="Movimiento no encontrado o sin permisos")
 
 @app.post("/marcar_pagado/{mov_id}")
-def cambiar_estado_pagado(mov_id: int, db: Session = Depends(get_db)):
-    mov = db.query(models.Movimiento).filter(models.Movimiento.id == mov_id).first()
-    if not mov: raise HTTPException(status_code=404)
+def marcar_movimiento_pagado(mov_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Buscamos el movimiento asegurándonos que el proveedor asociado sea del usuario actual
+    mov = db.query(models.Movimiento).join(models.Proveedor).filter(
+        models.Movimiento.id == mov_id,
+        models.Proveedor.owner_id == current_user.id
+    ).first()
     
+    if not mov:
+        raise HTTPException(status_code=404, detail="Movimiento no encontrado o sin permisos")
+    
+    # Invertimos el estado
     mov.pagado = not mov.pagado
-    if mov.pagado: mov.fecha_pago = datetime.now()
+    
+    # Si se marca como pagado, actualizamos la fecha
+    if mov.pagado:
+        mov.fecha_pago = datetime.now()
+        
     db.commit()
     return {"status": "success", "nuevo_estado": mov.pagado}
