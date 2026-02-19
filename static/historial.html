@@ -13,21 +13,63 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Poppins', sans-serif; }
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+
         .bg-pattern {
             background-color: #f8fafc;
             background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
             background-size: 20px 20px;
         }
-        .badge { padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
-        .badge-compra { background: #fff7ed; color: #ea580c; border: 1px solid #ffedd5; }
-        .badge-venta { background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }
-        .badge-pago { background: #faf5ff; color: #9333ea; border: 1px solid #f3e8ff; }
-        .segment-btn.active { background: white; color: #0f172a; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; opacity: 0; }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .badge-compra {
+            background: #fff7ed;
+            color: #ea580c;
+            border: 1px solid #ffedd5;
+        }
+
+        .badge-venta {
+            background: #eff6ff;
+            color: #2563eb;
+            border: 1px solid #dbeafe;
+        }
+
+        .badge-pago {
+            background: #faf5ff;
+            color: #9333ea;
+            border: 1px solid #f3e8ff;
+        }
+
+        .segment-btn.active {
+            background: white;
+            color: #0f172a;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+            opacity: 0;
+        }
+
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
@@ -41,9 +83,7 @@
             </div>
             <div class="flex gap-2">
                 <button onclick="descargarPDF()" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-xl font-bold shadow-lg shadow-red-200 transition-all flex items-center gap-2 text-xs uppercase">🖨️ PDF</button>
-                <button onclick="window.location.href='/static/index.html'" class="bg-white border-2 border-gray-200 text-gray-600 px-5 py-2 rounded-xl font-bold hover:bg-gray-50 transition-all text-xs uppercase cursor-pointer">
-                    ⬅ Volver
-                </button>
+                <a href="index.html" class="bg-white border-2 border-gray-200 text-gray-600 px-5 py-2 rounded-xl font-bold hover:bg-gray-50 transition-all text-xs uppercase">⬅ Volver</a>
             </div>
         </div>
 
@@ -138,7 +178,7 @@
     </div>
 
     <datalist id="listaNombres"></datalist>
-    <script src="/static/config.js"></script>
+    <script src="config.js"></script>
 
     <script>
         const token = localStorage.getItem('fruverToken');
@@ -149,8 +189,7 @@
         let cacheOriginal = [];
         let filtroTipoActual = 'TODO';
 
-        if (!token) window.location.href = "/static/login.html";
-        
+        if (!token) window.location.href = "login.html";
         document.getElementById('txtUser').innerText = `USUARIO: ${username ? username.toUpperCase() : 'INVITADO'}`;
 
         window.onload = function () {
@@ -182,7 +221,7 @@
                 if (filtroTipoActual !== 'TODO') url += `&tipo=${filtroTipoActual}`;
 
                 const res = await CONFIG.solicitar(url);
-                if (!res.ok) return Swal.fire("Error", "No se pudo cargar", "error");
+                if (!res.ok) return CONFIG.notificar("Error", "No se pudo cargar", "error");
 
                 const respuesta = await res.json();
                 cacheOriginal = respuesta.data || [];
@@ -195,7 +234,9 @@
                 const btnNext = document.getElementById("btnSiguiente");
                 const btnPrev = document.getElementById("btnAnterior");
                 btnNext.disabled = (skip + limit >= total);
+                btnNext.classList.toggle('opacity-30', skip + limit >= total);
                 btnPrev.disabled = (skip === 0);
+                btnPrev.classList.toggle('opacity-30', skip === 0);
 
             } catch (e) { console.error(e); }
         }
@@ -228,7 +269,11 @@
 
             const divSaldo = document.getElementById('cardSaldoPendiente');
             divSaldo.innerText = CONFIG.formatearMoneda(saldoReal);
-            divSaldo.className = saldoReal <= 0 ? "text-xl font-black text-green-400 tracking-tight" : "text-xl font-black text-yellow-400 tracking-tight";
+            if (saldoReal <= 0) {
+                divSaldo.className = "text-xl font-black text-green-400 tracking-tight";
+            } else {
+                divSaldo.className = "text-xl font-black text-yellow-400 tracking-tight";
+            }
         }
 
         function renderizar() {
@@ -249,7 +294,8 @@
                     `<span class="badge badge-pago">Abono</span>` :
                     (item.tipo === 'COMPRA' ? `<span class="badge badge-compra">Compra</span>` : `<span class="badge badge-venta">Venta</span>`);
 
-                // --- LÓGICA DE CAJITA 📦 QUE TE GUSTABA ---
+                // --- LÓGICA DE DETALLE (📦) ---
+                // Aquí verificamos que los datos existan antes de pintar la cajita
                 let infoDetallada = "";
                 const cant = parseFloat(item.cantidad);
                 const prec = parseFloat(item.precio_unitario);
@@ -284,7 +330,7 @@
                             </td>
                             <td class="p-4 text-center no-print flex justify-center gap-2">
                                  ${!esPago ? `
-                                    <button onclick="togglePago(${item.id})" class="shadow-sm border border-gray-200 rounded-lg px-3 py-1 hover:bg-green-50 active:scale-95 transition-all text-xs flex items-center gap-1">
+                                    <button onclick="togglePago(${item.id})" class="shadow-sm border border-gray-200 rounded-lg px-3 py-1 hover:bg-green-50 active:scale-95 transition-all text-xs flex items-center gap-1" title="Cambiar Estado">
                                         ${item.pagado ? '↩️' : '💵 Pagar'}
                                     </button>` : ''}
                                 <button onclick="eliminarMov(${item.id}, '${item.producto}')" class="text-gray-300 hover:text-red-500 text-lg transition-colors px-2">🗑️</button>
@@ -293,7 +339,6 @@
                     `;
             }).join('');
 
-            // --- CÁLCULO DE SALDO DEL FOOTER ---
             let saldoPagina = datos.reduce((acc, item) => {
                 const val = parseFloat(item.monto);
                 if (item.tipo === 'PAGO') return acc - val;
@@ -301,10 +346,17 @@
                 return acc;
             }, 0);
 
+            let textoFooter = "Saldo Pendiente Visible:";
+            let colorFooter = "text-gray-900";
+            if (saldoPagina < 0) {
+                textoFooter = "Saldo a Favor (Crédito):";
+                colorFooter = "text-green-600";
+            }
+
             document.getElementById('footerTabla').innerHTML = `
                     <tr>
-                        <td colspan="3" class="text-right p-4 uppercase text-xs text-gray-400 font-black">Saldo Pendiente Visible:</td>
-                        <td class="text-right p-4 font-black text-gray-900 text-sm border-t border-gray-200">
+                        <td colspan="3" class="text-right p-4 uppercase text-xs text-gray-400 font-black">${textoFooter}</td>
+                        <td class="text-right p-4 font-black ${colorFooter} text-sm border-t border-gray-200">
                             ${CONFIG.formatearMoneda(Math.abs(saldoPagina))}
                         </td>
                         <td colspan="2"></td>
@@ -315,17 +367,19 @@
         async function togglePago(id) {
             try {
                 const res = await CONFIG.solicitar(`/marcar_pagado/${id}`, { method: 'POST' });
-                if (res.ok) cargarHistorial();
-            } catch (e) { }
+                if (res.ok) {
+                    const toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+                    toast.fire({ icon: 'success', title: 'Estado actualizado' });
+                    cargarHistorial();
+                } else { CONFIG.notificar("Error", "No se pudo actualizar", "error"); }
+            } catch (e) { CONFIG.notificar("Error", "Error de conexión", "error"); }
         }
 
         function filtrarTipo(tipo) {
             filtroTipoActual = tipo;
             const botones = { 'TODO': 'btnTodo', 'COMPRA': 'btnCompras', 'VENTA': 'btnVentas', 'PAGO': 'btnPagos' };
-            Object.keys(botones).forEach(key => {
-                document.getElementById(botones[key]).classList.toggle('active', key === tipo);
-                document.getElementById(botones[key]).classList.toggle('bg-white', key === tipo);
-            });
+            Object.keys(botones).forEach(key => document.getElementById(botones[key]).classList.toggle('active', key === tipo));
+            Object.keys(botones).forEach(key => document.getElementById(botones[key]).classList.toggle('bg-white', key === tipo));
             resetYPaginacion();
         }
 
@@ -349,7 +403,8 @@
 
         function limpiarFiltros() {
             document.getElementById('filtroNombre').value = '';
-            document.getElementById('filtroFecha')._flatpickr.clear();
+            const fp = document.querySelector("#filtroFecha")._flatpickr;
+            if (fp) fp.clear();
             filtroTipoActual = 'TODO';
             resetYPaginacion();
         }
@@ -365,17 +420,12 @@
             const botones = document.querySelectorAll('.no-print');
             botones.forEach(b => b.style.display = 'none');
 
-            html2pdf().set({ 
-                margin: 0.2, 
-                filename: `Reporte_${n}.pdf`, 
-                image: { type: 'jpeg', quality: 0.98 }, 
-                html2canvas: { scale: 2 }, 
-                jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' } 
-            }).from(element).save().then(() => {
-                document.getElementById('cabeceraPDF').classList.add('hidden');
-                botones.forEach(b => b.style.display = '');
-                Swal.close();
-            });
+            html2pdf().set({ margin: 0.2, filename: `Reporte_${n}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' } })
+                .from(element).save().then(() => {
+                    document.getElementById('cabeceraPDF').classList.add('hidden');
+                    botones.forEach(b => b.style.display = '');
+                    Swal.close();
+                });
         }
     </script>
 </body>
