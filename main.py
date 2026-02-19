@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -479,3 +480,4 @@ def marcar_movimiento_pagado(mov_id: int, current_user: models.User = Depends(ge
         
     db.commit()
     return {"status": "success", "nuevo_estado": mov.pagado}
+
