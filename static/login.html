@@ -25,7 +25,7 @@
         .transition-all {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        
+        /* Animación de entrada */
         .animate-zoom {
             animation: zoomIn 0.4s ease-out;
         }
@@ -35,6 +35,7 @@
                 opacity: 0;
                 transform: scale(0.9);
             }
+
             to {
                 opacity: 1;
                 transform: scale(1);
@@ -106,7 +107,7 @@
         <p class="text-center text-gray-300 text-[9px] mt-10 font-bold uppercase tracking-[0.2em] italic">© 2026 FruverOS Pro</p>
     </div>
 
-    <script src="/static/config.js"></script>
+    <script src="config.js"></script>
 
     <script>
         function mostrarSeccion(tipo) {
@@ -115,14 +116,16 @@
             document.getElementById('recoverForm').classList.toggle('hidden', tipo !== 'recover');
         }
 
+        // --- LOGIN CON UX POLISH ---
         async function login() {
             const u = document.getElementById('logUser').value.trim();
             const p = document.getElementById('logPass').value.trim();
 
             if (!u || !p) {
-                return Swal.fire("Campos Vacíos", "Ingresa usuario y contraseña", "warning");
+                return CONFIG.notificar("Campos Vacíos", "Por favor ingresa tu usuario y contraseña", "warning");
             }
 
+            // Estado de carga visual
             Swal.fire({
                 title: 'Autenticando...',
                 text: 'Validando acceso seguro',
@@ -149,29 +152,30 @@
                     localStorage.setItem('fruverId', data.user_id);
                     localStorage.setItem('rol', data.rol);
 
+                    // Bienvenida pro
                     Swal.fire({
                         icon: 'success',
                         title: `¡Hola, ${data.username}!`,
-                        text: 'Cargando el tablero...',
+                        text: 'Ingreso exitoso. Cargando el tablero...',
                         timer: 1500,
                         showConfirmButton: false,
                         borderRadius: '2rem'
                     }).then(() => {
-                        // LA CORRECCIÓN CLAVE: Ir directamente al panel de control
-                        window.location.href = '/static/index.html';
+                        window.location.href = 'index.html';
                     });
                 } else {
-                    Swal.fire("Acceso Denegado", "Usuario o contraseña incorrectos", "error");
+                    CONFIG.notificar("Acceso Denegado", "Usuario o contraseña incorrectos", "error");
                 }
             } catch (e) {
-                Swal.fire("Error de Red", "No se pudo conectar con el servidor", "error");
+                CONFIG.notificar("Error de Red", "No se pudo conectar con el servidor", "error");
             }
         }
 
+        // --- REGISTRO CON UX POLISH ---
         async function registro() {
             const u = document.getElementById('regUser').value.trim();
             const p = document.getElementById('regPass').value.trim();
-            if (!u || !p) return Swal.fire("Datos Incompletos", "Llena ambos campos", "warning");
+            if (!u || !p) return CONFIG.notificar("Datos Incompletos", "Llena ambos campos para registrarte", "warning");
 
             try {
                 const res = await fetch(`${CONFIG.API_URL}/register`, {
@@ -181,33 +185,34 @@
                 });
 
                 if (res.ok) {
-                    Swal.fire("¡Excelente!", "Cuenta creada con éxito.", "success");
+                    CONFIG.notificar("¡Excelente!", "Cuenta creada con éxito. Ya puedes ingresar.", "success");
                     mostrarSeccion('login');
                 } else {
                     const d = await res.json();
-                    Swal.fire("Error", d.detail || "El usuario ya existe", "error");
+                    CONFIG.notificar("Error", d.detail || "El usuario ya existe", "error");
                 }
-            } catch (e) { Swal.fire("Error de Conexión", "No se pudo realizar el registro", "error"); }
+            } catch (e) { CONFIG.notificar("Error de Conexión", "No se pudo realizar el registro", "error"); }
         }
 
+        // --- RECUPERACIÓN CON UX POLISH ---
         async function recuperarClave() {
             const id = document.getElementById('recId').value;
             const pass = document.getElementById('recNewPass').value;
             const token = document.getElementById('recToken').value.trim();
 
-            if (!id || !pass || !token) return Swal.fire("Atención", "Campos obligatorios", "warning");
+            if (!id || !pass || !token) return CONFIG.notificar("Atención", "Todos los campos son obligatorios", "warning");
 
             try {
                 const url = `${CONFIG.API_URL}/cambiar-password-dinamico?user_id=${id}&nueva_pass=${encodeURIComponent(pass)}&token_admin=${encodeURIComponent(token)}`;
                 const res = await fetch(url, { method: 'POST' });
 
                 if (res.ok) {
-                    Swal.fire("Cambio Exitoso", "Contraseña actualizada", "success");
+                    CONFIG.notificar("Cambio Exitoso", "Tu contraseña ha sido actualizada correctamente", "success");
                     mostrarSeccion('login');
                 } else {
-                    Swal.fire("Error de Token", "Código o ID no válidos", "error");
+                    CONFIG.notificar("Error de Token", "El código o el ID no son válidos", "error");
                 }
-            } catch (e) { Swal.fire("Error", "Error de servidor", "error"); }
+            } catch (e) { CONFIG.notificar("Error", "Error de comunicación con el servidor", "error"); }
         }
     </script>
 </body>
