@@ -58,13 +58,17 @@
         <div id="loginForm" class="space-y-5">
             <div>
                 <label class="text-[10px] font-black text-gray-400 uppercase ml-4 mb-1 block tracking-widest">Usuario</label>
-                <input id="logUser" type="text" placeholder="TU USUARIO"
-                       class="w-full p-4 border-2 border-gray-50 rounded-2xl outline-none focus:border-green-500 transition-all font-bold text-gray-700 bg-gray-50/50 uppercase">
+                <input id="logUser" type="text" placeholder="Tu Usuario" class="w-full px-5 py-4 rounded-2xl border border-gray-200 bg-white/50 focus:bg-white focus:ring-4 focus:ring-green-500/20 outline-none font-bold text-gray-700 transition-all">
             </div>
             <div>
                 <label class="text-[10px] font-black text-gray-400 uppercase ml-4 mb-1 block tracking-widest">Contraseña</label>
-                <input id="logPass" type="password" placeholder="••••••••"
-                       class="w-full p-4 border-2 border-gray-50 rounded-2xl outline-none focus:border-green-500 transition-all font-bold text-gray-700 bg-gray-50/50">
+                <div class="relative w-full">
+                    <input id="logPass" type="password" placeholder="Tu Contraseña" class="w-full pl-5 pr-12 py-4 rounded-2xl border border-gray-200 bg-white/50 focus:bg-white focus:ring-4 focus:ring-green-500/20 outline-none font-bold text-gray-700 transition-all">
+
+                    <button type="button" onclick="toggleClave('logPass', this)" class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-green-600 transition-colors text-xl">
+                        👁️
+                    </button>
+                </div>
             </div>
 
             <button onclick="login()" class="w-full bg-green-700 text-white font-black py-4 rounded-2xl hover:bg-green-800 shadow-xl transition-all transform hover:scale-[1.02] active:scale-95 text-sm uppercase tracking-widest">
@@ -87,7 +91,7 @@
 
         <div id="registerForm" class="hidden space-y-5">
             <h2 class="text-xl font-black text-center text-gray-700 uppercase tracking-tight mb-6">Nuevo Perfil</h2>
-            <input id="regUser" type="text" placeholder="USUARIO DESEADO" class="w-full p-4 border-2 border-gray-50 rounded-2xl outline-none focus:border-blue-500 font-bold bg-gray-50/50 uppercase">
+            <input id="regUser" type="text" placeholder="USUARIO DESEADO" class="w-full p-4 border-2 border-gray-50 rounded-2xl outline-none focus:border-blue-500 font-bold bg-gray-50/50">
             <input id="regPass" type="password" placeholder="CONTRASEÑA SEGURA" class="w-full p-4 border-2 border-gray-50 rounded-2xl outline-none focus:border-blue-500 font-bold bg-gray-50/50">
             <button onclick="registro()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 shadow-xl transition-all uppercase text-sm tracking-widest">Registrarme ahora</button>
             <button onclick="mostrarSeccion('login')" class="w-full text-gray-400 font-black py-2 text-[10px] uppercase text-center hover:text-gray-600">⬅ Volver al inicio</button>
@@ -114,6 +118,18 @@
             document.getElementById('loginForm').classList.toggle('hidden', tipo !== 'login');
             document.getElementById('registerForm').classList.toggle('hidden', tipo !== 'register');
             document.getElementById('recoverForm').classList.toggle('hidden', tipo !== 'recover');
+        }
+
+        // --- FUNCIÓN PARA EL OJITO DE LA CONTRASEÑA ---
+        function toggleClave(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (input.type === "password") {
+                input.type = "text";
+                btn.innerText = "🙈"; // Monito tapándose los ojos
+            } else {
+                input.type = "password";
+                btn.innerText = "👁️"; // Vuelve al ojo
+            }
         }
 
         // --- LOGIN CON UX POLISH ---
@@ -186,6 +202,8 @@
 
                 if (res.ok) {
                     CONFIG.notificar("¡Excelente!", "Cuenta creada con éxito. Ya puedes ingresar.", "success");
+                    document.getElementById('regUser').value = '';
+                    document.getElementById('regPass').value = '';
                     mostrarSeccion('login');
                 } else {
                     const d = await res.json();
@@ -208,6 +226,9 @@
 
                 if (res.ok) {
                     CONFIG.notificar("Cambio Exitoso", "Tu contraseña ha sido actualizada correctamente", "success");
+                    document.getElementById('recId').value = '';
+                    document.getElementById('recNewPass').value = '';
+                    document.getElementById('recToken').value = '';
                     mostrarSeccion('login');
                 } else {
                     CONFIG.notificar("Error de Token", "El código o el ID no son válidos", "error");
