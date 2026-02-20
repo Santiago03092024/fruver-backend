@@ -295,73 +295,93 @@
                     (item.tipo === 'COMPRA' ? `<span class="badge badge-compra">Compra</span>` : `<span class="badge badge-venta">Venta</span>`);
 
                 // --- LÓGICA DE DETALLE (📦) ---
-                // Aquí verificamos que los datos existan antes de pintar la cajita
                 let infoDetallada = "";
                 const cant = parseFloat(item.cantidad);
                 const prec = parseFloat(item.precio_unitario);
 
                 if (cant > 0 && prec > 0) {
                     infoDetallada = `
-                            <div class="mt-1 flex items-center gap-1 text-[10px] text-gray-500 font-bold bg-gray-50 px-2 py-1 rounded w-max border border-gray-100">
-                                <span>📦 ${cant}</span>
-                                <span class="text-gray-300">|</span>
-                                <span>Unit: ${CONFIG.formatearMoneda(prec)}</span>
-                            </div>
-                         `;
+                     <div class="mt-1 flex items-center gap-1 text-[10px] text-gray-500 font-bold bg-gray-50 px-2 py-1 rounded w-max border border-gray-100">
+                         <span>📦 ${cant}</span>
+                         <span class="text-gray-300">|</span>
+                         <span>Unit: ${CONFIG.formatearMoneda(prec)}</span>
+                     </div>
+                  `;
                 }
 
                 return `
-                        <tr class="hover:bg-gray-50 border-b border-gray-100 transition-colors">
-                            <td class="p-4 font-bold text-gray-400">${item.fecha}</td>
-                            <td class="p-4 font-black text-gray-800 uppercase">${item.proveedor}</td>
-                            <td class="p-4">
-                                <div class="flex flex-col">
-                                    <span class="font-bold text-gray-700 uppercase">${item.producto || 'Sin descripción'}</span>
-                                    ${infoDetallada}
-                                    <div class="mt-1">${badge}</div>
-                                </div>
-                            </td>
-                            <td class="p-4 text-right font-black text-gray-800">${CONFIG.formatearMoneda(item.monto)}</td>
-                            <td class="p-4 text-center">
-                                ${!esPago ? (item.pagado
+                 <tr class="hover:bg-gray-50 border-b border-gray-100 transition-colors">
+                     <td class="p-4 font-bold text-gray-400">${item.fecha}</td>
+                     <td class="p-4 font-black text-gray-800 uppercase">${item.proveedor}</td>
+                     <td class="p-4">
+                         <div class="flex flex-col">
+                             <span class="font-bold text-gray-700 uppercase">${item.producto || 'Sin descripción'}</span>
+                             ${infoDetallada}
+                             <div class="mt-1">${badge}</div>
+                         </div>
+                     </td>
+                     <td class="p-4 text-right font-black text-gray-800">${CONFIG.formatearMoneda(item.monto)}</td>
+                     <td class="p-4 text-center">
+                         ${!esPago ? (item.pagado
                         ? '<span class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded">PAGADO</span>'
                         : '<span class="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded">DEBE</span>')
                         : '<span class="text-[10px] font-bold text-purple-600">OK</span>'}
-                            </td>
-                            <td class="p-4 text-center no-print flex justify-center gap-2">
-                                 ${!esPago ? `
-                                    <button onclick="togglePago(${item.id})" class="shadow-sm border border-gray-200 rounded-lg px-3 py-1 hover:bg-green-50 active:scale-95 transition-all text-xs flex items-center gap-1" title="Cambiar Estado">
-                                        ${item.pagado ? '↩️' : '💵 Pagar'}
-                                    </button>` : ''}
-                                <button onclick="eliminarMov(${item.id}, '${item.producto}')" class="text-gray-300 hover:text-red-500 text-lg transition-colors px-2">🗑️</button>
-                            </td>
-                        </tr>
-                    `;
+                     </td>
+                     <td class="p-4 text-center no-print flex justify-center gap-2">
+                          ${!esPago ? `
+                             <button onclick="togglePago(${item.id})" class="shadow-sm border border-gray-200 rounded-lg px-3 py-1 hover:bg-green-50 active:scale-95 transition-all text-xs flex items-center gap-1" title="Cambiar Estado">
+                                 ${item.pagado ? '↩️' : '💵 Pagar'}
+                             </button>` : ''}
+                         <button onclick="eliminarMov(${item.id}, '${item.producto}')" class="text-gray-300 hover:text-red-500 text-lg transition-colors px-2">🗑️</button>
+                     </td>
+                 </tr>
+             `;
             }).join('');
 
-            let saldoPagina = datos.reduce((acc, item) => {
-                const val = parseFloat(item.monto);
-                if (item.tipo === 'PAGO') return acc - val;
-                if (!item.pagado) return acc + val;
-                return acc;
-            }, 0);
+            // =======================================================
+            // --- NUEVO CÁLCULO PROFESIONAL PARA EL FOOTER DE LA TABLA ---
+            // =======================================================
+            let totalComprasPendientes = 0;
+            let totalVentasPendientes = 0;
+            let totalAbonosPendientes = 0;
 
-            let textoFooter = "Saldo Pendiente Visible:";
-            let colorFooter = "text-gray-900";
-            if (saldoPagina < 0) {
-                textoFooter = "Saldo a Favor (Crédito):";
-                colorFooter = "text-green-600";
-            }
+            datos.forEach(item => {
+                // EL SECRETO ESTÁ AQUÍ: Solo sumamos si el recibo NO está pagado
+                if (!item.pagado) {
+                    const val = parseFloat(item.monto);
+                    if (item.tipo === 'COMPRA') totalComprasPendientes += val;
+                    else if (item.tipo === 'VENTA') totalVentasPendientes += val;
+                    else if (item.tipo === 'PAGO') totalAbonosPendientes += val;
+                }
+            });
+
+            // 1. Restamos las Compras pendientes con las Ventas pendientes
+            let saldoBase = Math.abs(totalComprasPendientes - totalVentasPendientes);
+
+            // 2. A esa diferencia le restamos los Abonos pendientes
+            let saldoReal = saldoBase - totalAbonosPendientes;
+
+            let colorSaldo = saldoReal >= 0 ? "text-orange-600" : "text-green-600";
+            let textoSaldo = saldoReal >= 0 ? "SALDO PENDIENTE:" : "SALDO A FAVOR (CRÉDITO):";
 
             document.getElementById('footerTabla').innerHTML = `
-                    <tr>
-                        <td colspan="3" class="text-right p-4 uppercase text-xs text-gray-400 font-black">${textoFooter}</td>
-                        <td class="text-right p-4 font-black ${colorFooter} text-sm border-t border-gray-200">
-                            ${CONFIG.formatearMoneda(Math.abs(saldoPagina))}
-                        </td>
-                        <td colspan="2"></td>
-                    </tr>
-                `;
+         <tr class="bg-white">
+             <td colspan="3" class="text-right p-4 uppercase text-[10px] text-gray-500 font-black tracking-widest leading-relaxed border-t border-gray-200">
+                 Deudas por Compras:<br>
+                 Deudas por Ventas:<br>
+                 Abonos a Favor:<br>
+                 <span class="text-xs text-gray-800 font-black mt-2 block">${textoSaldo}</span>
+             </td>
+             <td class="text-right p-4 font-black leading-relaxed border-t border-gray-200">
+                 <span class="text-orange-500 text-sm">${CONFIG.formatearMoneda(totalComprasPendientes)}</span><br>
+                 <span class="text-blue-500 text-sm">${CONFIG.formatearMoneda(totalVentasPendientes)}</span><br>
+                 <span class="text-purple-600 text-sm">- ${CONFIG.formatearMoneda(totalAbonosPendientes)}</span><br>
+                 <div class="h-px w-full bg-gray-200 my-1"></div>
+                 <span class="${colorSaldo} text-base block">${CONFIG.formatearMoneda(Math.abs(saldoReal))}</span>
+             </td>
+             <td colspan="2" class="border-t border-gray-200"></td>
+         </tr>
+     `;
         }
 
         async function togglePago(id) {
