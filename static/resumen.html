@@ -206,9 +206,14 @@
                         <p class="text-4xl font-black text-purple-700 mb-4" id="lblTotal">$0</p>
                         <p class="text-[9px] text-gray-400 font-bold mb-4 uppercase italic">(Solo suma compras/ventas NO pagadas)</p>
 
-                        <button onclick="pagarFechas()" class="w-full bg-purple-600 text-white py-4 rounded-xl font-black shadow-xl uppercase tracking-widest transition-all hover:bg-purple-700 active:scale-95">
-                            Saldar este Rango
-                        </button>
+                        <div class="flex gap-2">
+                            <button onclick="pagarFechas()" class="flex-1 bg-purple-600 text-white py-4 rounded-xl font-black shadow-xl uppercase tracking-widest transition-all hover:bg-purple-700 active:scale-95">
+                                Saldar este Rango
+                            </button>
+                            <button onclick="nuevaBusquedaPago()" class="bg-white border-2 border-purple-200 text-purple-600 hover:bg-purple-100 px-5 py-4 rounded-xl font-black uppercase shadow-sm transition-all active:scale-95" title="Nueva Búsqueda">
+                                ↻
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -228,10 +233,9 @@
 
         let listaCompras = [];
         let modoActual = 'compra';
-        let deudaTemp = 0;
+        let deudaTemp = 0; // Variable global correcta
 
         window.onload = function () {
-            // Inicializar Calendarios Estilo Airbnb
             const configFlatpickr = {
                 locale: "es",
                 dateFormat: "Y-m-d",
@@ -243,7 +247,6 @@
             flatpickr("#ventaFecha", configFlatpickr);
             flatpickr("#abonoFecha", configFlatpickr);
 
-            // Para el rango de fechas, no ponemos defaultDate para obligar a seleccionar
             flatpickr("#fInicio", { ...configFlatpickr, defaultDate: null });
             flatpickr("#fFin", { ...configFlatpickr, defaultDate: null });
 
@@ -285,7 +288,6 @@
             });
         }
 
-        // --- FUNCIONES DE COMPRA ---
         function addCompra() {
             const p = document.getElementById('cProd').value.toUpperCase();
             const u = document.getElementById('cUnidad').value;
@@ -308,15 +310,15 @@
             const tb = document.getElementById('tablaCompra');
             const fechaVisual = document.getElementById('compraFecha').value;
             tb.innerHTML = listaCompras.map((it, i) => `
-                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td class="p-3 text-[10px] font-bold text-gray-400">${fechaVisual}</td>
-                        <td class="p-3 font-black uppercase text-gray-700">${it.prod}</td>
-                        <td class="p-3 text-center text-xs font-bold text-gray-500 bg-gray-50 rounded-lg">
-                            ${it.cant} ${it.unidad} * ${CONFIG.formatearMoneda(it.precio)}
-                        </td>
-                        <td class="p-3 text-right font-black text-green-600">${CONFIG.formatearMoneda(it.total)}</td>
-                        <td class="p-3 text-right"><button onclick="listaCompras.splice(${i}, 1); renderTablaCompra()" class="text-red-300 hover:text-red-500 font-bold">✕</button></td>
-                    </tr>`).join('');
+                            <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                <td class="p-3 text-[10px] font-bold text-gray-400">${fechaVisual}</td>
+                                <td class="p-3 font-black uppercase text-gray-700">${it.prod}</td>
+                                <td class="p-3 text-center text-xs font-bold text-gray-500 bg-gray-50 rounded-lg">
+                                    ${it.cant} ${it.unidad} * ${CONFIG.formatearMoneda(it.precio)}
+                                </td>
+                                <td class="p-3 text-right font-black text-green-600">${CONFIG.formatearMoneda(it.total)}</td>
+                                <td class="p-3 text-right"><button onclick="listaCompras.splice(${i}, 1); renderTablaCompra()" class="text-red-300 hover:text-red-500 font-bold">✕</button></td>
+                            </tr>`).join('');
         }
 
         async function guardarCompra() {
@@ -337,7 +339,6 @@
             } catch (e) { CONFIG.notificar("❌ Error", "No se pudo conectar con el servidor", "error"); }
         }
 
-        // --- FUNCIONES DE VENTA ---
         async function guardarVenta() {
             const cli = document.getElementById('ventaCliente').value;
             const mon = document.getElementById('ventaMonto').value;
@@ -356,7 +357,6 @@
             } catch (e) { }
         }
 
-        // --- FUNCIONES DE TESORERÍA / PAGO ---
         function setModoPago(m) {
             const zA = document.getElementById('zonaAbono'), zF = document.getElementById('zonaFechas');
             const btnA = document.getElementById('btnModoAbono'), btnF = document.getElementById('btnModoFechas');
@@ -390,54 +390,64 @@
             } catch (e) { }
         }
 
-        // --- CÁLCULO DE DEUDA POR RANGO DE FECHAS (CORREGIDO) ---
+        // --- CÁLCULO DE DEUDA POR RANGO DE FECHAS ---
         async function calcDeuda() {
             const n = document.getElementById('pagoNombre').value.trim();
-            // Obtenemos las fechas del flatpickr
             const f1 = document.getElementById('fInicio').value;
             const f2 = document.getElementById('fFin').value;
 
-            if (!n) return CONFIG.notificar("Falta Nombre", "Seleccione un cliente/proveedor primero", "warning");
-            if (!f1 || !f2) return CONFIG.notificar("Faltan Fechas", "Seleccione fecha inicio y fin", "warning");
-
-            Swal.fire({ title: 'Calculando...', didOpen: () => { Swal.showLoading() } });
+            if (!n || !f1 || !f2) return CONFIG.notificar("Atención", "Llena todos los campos", "warning");
 
             try {
-                // 1. Traemos TODO el historial de esa persona (con un límite alto para asegurar traer todo)
-                const res = await CONFIG.solicitar(`/historial?limit=1000&nombre=${encodeURIComponent(n)}`);
+                const res = await CONFIG.solicitar(`/historial?nombre=${encodeURIComponent(n)}&limit=1000`);
                 const data = await res.json();
 
-                // 2. Filtramos manualmente en el cliente para máxima precisión
-                let total = 0;
-                const dInicio = new Date(f1); dInicio.setHours(0, 0, 0, 0);
-                const dFin = new Date(f2); dFin.setHours(23, 59, 59, 999);
+                // Lógica contable exacta: Separar compras, ventas y abonos
+                let totalCompras = 0;
+                let totalVentas = 0;
+                let totalAbonos = 0;
 
-                // IMPORTANTE: data.data contiene el array de movimientos
-                const movimientos = data.data || [];
+                data.data.forEach(mov => {
+                    const fechaMov = mov.fecha.split(' ')[0];
 
-                movimientos.forEach(mov => {
-                    // Convertir fecha del movimiento (string YYYY-MM-DD...) a objeto Date
-                    const fechaMov = new Date(mov.fecha.split(' ')[0] + 'T00:00:00'); // Forzamos hora local para evitar líos de zona horaria básica
-
-                    // Lógica: Está en el rango + Es Compra o Venta + NO está pagado
-                    if (fechaMov >= dInicio && fechaMov <= dFin) {
-                        if (!mov.pagado && (mov.tipo === 'COMPRA' || mov.tipo === 'VENTA')) {
-                            total += parseFloat(mov.monto); // Sumamos la deuda
-                        }
+                    // Solo miramos movimientos NO pagados dentro de la fecha seleccionada
+                    if (!mov.pagado && fechaMov >= f1 && fechaMov <= f2) {
+                        const val = parseFloat(mov.monto);
+                        if (mov.tipo === 'COMPRA') totalCompras += val;
+                        else if (mov.tipo === 'VENTA') totalVentas += val;
+                        else if (mov.tipo === 'PAGO') totalAbonos += val;
                     }
                 });
 
-                Swal.close();
-                deudaTemp = total;
-                document.getElementById('lblTotal').innerText = CONFIG.formatearMoneda(total);
+                // Diferencia base y luego restar abonos
+                let saldoBase = Math.abs(totalCompras - totalVentas);
+                deudaTemp = saldoBase - totalAbonos;
+
+                if (deudaTemp < 0) deudaTemp = 0; // Evita mostrar saldos negativos aquí
+
+                // Actualiza el texto usando el ID correcto (lblTotal)
+                document.getElementById('lblTotal').innerText = CONFIG.formatearMoneda(deudaTemp);
                 document.getElementById('resCalc').classList.remove('hidden');
 
-                if (total === 0) CONFIG.notificar("Al día", "No se encontraron deudas pendientes en este rango", "info");
-
             } catch (e) {
-                console.error(e);
                 CONFIG.notificar("Error", "No se pudo calcular la deuda", "error");
             }
+        }
+
+        // --- NUEVA BÚSQUEDA ---
+        function nuevaBusquedaPago() {
+            // 1. Limpia el nombre de la persona
+            document.getElementById('pagoNombre').value = '';
+
+            // 2. Limpia los campos del calendario
+            document.getElementById('fInicio')._flatpickr.clear();
+            document.getElementById('fFin')._flatpickr.clear();
+
+            // 3. Oculta el panel de resultado y reinicia la deuda
+            document.getElementById('resCalc').classList.add('hidden');
+            deudaTemp = 0;
+
+            CONFIG.notificar("Listo", "Campos limpiados para nueva búsqueda", "success");
         }
 
         async function pagarFechas() {
@@ -445,7 +455,7 @@
             const f1 = document.getElementById('fInicio').value;
             const f2 = document.getElementById('fFin').value;
 
-            if (deudaTemp <= 0) return CONFIG.notificar("Error", "No hay deuda para pagar", "error");
+            if (deudaTemp <= 0) return CONFIG.notificar("Aviso", "No hay saldo pendiente en estas fechas", "warning");
 
             Swal.fire({
                 title: '¿Confirmar Pago?',
